@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 700">
+<defs><linearGradient id="g" x1="0" x2="1"><stop stop-color="#22c55e"/><stop offset="1" stop-color="#0ea5e9"/></linearGradient></defs>
+<rect width="1200" height="700" fill="url(#g)"/>
+<path d="M0 430 C190 330 360 330 530 430 S860 520 1200 410 V700 H0 Z" fill="#1e3a8a" opacity=".25"/>
+<path d="M0 500 C180 440 430 450 640 520 S980 560 1200 490 V700 H0 Z" fill="#0284c7" opacity=".35"/>
+<path d="M340 350 l80 -160 l80 160" stroke="white" stroke-width="18" fill="none" opacity=".85"/>
+<path d="M470 360 l120 -220 l130 220" stroke="white" stroke-width="20" fill="none" opacity=".8"/>
+<ellipse cx="760" cy="505" rx="130" ry="24" fill="#f59e0b"/>
+<path d="M700 500 q60 -70 120 0" fill="#f97316"/>
+<circle cx="762" cy="450" r="12" fill="white"/>
+<text x="70" y="610" font-size="64" fill="white" font-family="Arial, sans-serif" font-weight="700">Natur &amp; Aktivitäten</text>
+</svg>

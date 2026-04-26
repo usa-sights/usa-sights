@@ -1,0 +1,258 @@
+'use client'
+
+import dynamic from 'next/dynamic'
+import Link from 'next/link'
+import { useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'next/navigation'
+import { authFetchJson } from '@/utils/authFetch'
+import { deriveThumbPath } from '@/lib/imageUpload'
+
+const AdminMediaMap = dynamic(() => import('@/components/AdminMediaMap'), { ssr: false })
+
+function formatDate(value) {
+  if (!value) return '—'
+  try {
+    return new Intl.DateTimeFormat('de-AT', { dateStyle:'medium', timeStyle:'short' }).format(new Date(value))
+  } catch {
+    return value
+  }
+}
+
+export default function AdminMediaClient() {
+  const searchParams = useSearchParams()
+  const [status, setStatus] = useState(searchParams.get('status') || 'pending')
+  const [items, setItems] = useState([])
+  const [filtered, setFiltered] = useState([])
+  const [urls, setUrls] = useState({})
+  const [message, setMessage] = useState('')
+  const [search, setSearch] = useState('')
+  const [sortKey, setSortKey] = useState('created_at')
+  const [selectedIds, setSelectedIds] = useState([])
+  const [activePreview, setActivePreview] = useState(null)
+  const [busy, setBusy] = useState(false)
+
+  async function load(nextStatus = status) {
+    const data = await authFetchJson(`/api/admin/media?status=${nextStatus}`)
+    if (data.error) return setMessage(data.error)
+    const rows = data.items || []
+    setItems(rows)
+    setSelectedIds((prev) => prev.filter((id) => rows.some((row) => row.id === id)))
+    if (rows.length) {
+      const paths = Array.from(new Set(rows.flatMap((x) => [x.path, x.thumb_path || deriveThumbPath(x.path)].filter(Boolean))))
+      const signed = await fetch('/api/images/signed-urls', {
+        method:'POST',
+        headers:{ 'Content-Type':'application/json' },
+        body: JSON.stringify({ paths })
+      }).then((r) => r.json()).catch(() => ({ urls:{} }))
+      setUrls(signed.urls || {})
+    } else {
+      setUrls({})
+    }
+  }
+
+  useEffect(() => {
+    const nextStatus = searchParams.get('status') || 'pending'
+    setStatus(nextStatus)
+    load(nextStatus)
+  }, [searchParams])
+  useEffect(() => {
+    let rows = [...items]
+    if (search) {
+      const q = search.toLowerCase()
+      rows = rows.filter((x) => {
+        const title = x.pois?.title || ''
+        const caption = x.caption || ''
+        return title.toLowerCase().includes(q) || caption.toLowerCase().includes(q)
+      })
+    }
+    if (sortKey === 'created_at') rows.sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+    if (sortKey === 'title') rows.sort((a, b) => String(a.pois?.title || '').localeCompare(String(b.pois?.title || '')))
+    setFiltered(rows)
+    setActivePreview((prev) => (prev && rows.some((row) => row.id === prev.id) ? prev : rows[0] || null))
+  }, [items, search, sortKey])
+
+  async function updateImage(payload) {
+    setBusy(true)
+    const data = await authFetchJson('/api/admin/media', {
+      method:'PUT',
+      headers:{ 'Content-Type':'application/json' },
+      body: JSON.stringify(payload)
+    })
+    setBusy(false)
+    setMessage(data.error || data.message || 'Bild aktualisiert')
+    if (!data.error) {
+      await load()
+      window.dispatchEvent(new Event('app-data-changed'))
+    }
+  }
+
+  const grouped = useMemo(() => filtered.reduce((acc, item) => {
+    const key = item.pois?.title || 'Ohne POI'
+    if (!acc[key]) acc[key] = []
+    acc[key].push(item)
+    return acc
+  }, {}), [filtered])
+
+  const selectedCount = selectedIds.length
+
+  function isSelected(id) {
+    return selectedIds.includes(id)
+  }
+
+  function toggleSelect(id) {
+    setSelectedIds((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id])
+  }
+
+  function toggleGroup(rows, checked) {
+    const ids = rows.map((row) => row.id)
+    setSelectedIds((prev) => checked ? Array.from(new Set([...prev, ...ids])) : prev.filter((id) => !ids.includes(id)))
+  }
+
+  function visibleImageUrl(img) {
+    const thumbPath = img.thumb_path || deriveThumbPath(img.path)
+    return urls[thumbPath] || img.thumb_url || urls[img.path] || null
+  }
+
+  function largeImageUrl(img) {
+    const thumbPath = img.thumb_path || deriveThumbPath(img.path)
+    return urls[img.path] || urls[thumbPath] || img.thumb_url || null
+  }
+
+  async function bulkApprove() {
+    if (!selectedIds.length) return
+    await updateImage({ ids: selectedIds, status:'approved' })
+    setSelectedIds([])
+  }
+
+  async function bulkReject() {
+    if (!selectedIds.length) return
+    await updateImage({ ids: selectedIds, status:'rejected' })
+    setSelectedIds([])
+  }
+
+  async function bulkDelete() {
+    if (!selectedIds.length || busy) return
+    const confirmed = window.confirm(`Möchtest du ${selectedIds.length} Bild${selectedIds.length === 1 ? '' : 'er'} wirklich löschen? Dabei werden auch die Dateien im Supabase Storage entfernt.`)
+    if (!confirmed) return
+
+    setBusy(true)
+    const data = await authFetchJson('/api/admin/media', {
+      method:'DELETE',
+      headers:{ 'Content-Type':'application/json' },
+      body: JSON.stringify({ ids: selectedIds })
+    })
+    setBusy(false)
+    setMessage(data.error || data.message || 'Bilder gelöscht')
+    if (!data.error) {
+      setSelectedIds([])
+      await load()
+      window.dispatchEvent(new Event('app-data-changed'))
+    }
+  }
+
+  return (
+    <main className="container">
+      <h1>Admin / Medien</h1>
+      {message ? <div className="notice">{message}</div> : null}
+
+      <div className="card" style={{ marginBottom:16 }}>
+        <div style={{ display:'grid', gridTemplateColumns:'180px 1fr 220px auto auto', gap:12, alignItems:'end' }}>
+          <div><label className="label">Status</label><select className="select" value={status} onChange={(e)=>{ setStatus(e.target.value); load(e.target.value) }}><option value="pending">pending</option><option value="rejected">rejected</option><option value="approved">approved</option></select></div>
+          <div><label className="label">Suche POI oder Bildtext</label><input className="input" value={search} onChange={(e)=>setSearch(e.target.value)} /></div>
+          <div><label className="label">Sortierung</label><select className="select" value={sortKey} onChange={(e)=>setSortKey(e.target.value)}><option value="created_at">neueste zuerst</option><option value="title">POI Titel</option></select></div>
+          <button type="button" className="btn btn-secondary" style={{ marginBottom:12 }} disabled={!selectedCount || busy} onClick={bulkApprove}>Auswahl freigeben{selectedCount ? ` (${selectedCount})` : ''}</button>
+          <button type="button" className="btn btn-danger" style={{ marginBottom:12 }} disabled={!selectedCount || busy} onClick={bulkReject}>Auswahl ablehnen</button>
+          <button type="button" className="btn btn-danger" style={{ marginBottom:12 }} disabled={!selectedCount || busy} onClick={bulkDelete}>Auswahl löschen</button>
+        </div>
+        <p className="muted" style={{ margin:'4px 0 0' }}>Tipp: Bilder pro POI markieren und gesammelt freigeben. Ein Klick auf ein Bild öffnet rechts die größere Vorschau mit Schnellaktionen.</p>
+      </div>
+
+      <AdminMediaMap items={filtered} onUpdated={() => load()} />
+
+      <div className="admin-media-layout">
+        <div>
+          {Object.entries(grouped).map(([title, rows]) => {
+            const allSelected = rows.every((row) => isSelected(row.id))
+            const someSelected = rows.some((row) => isSelected(row.id))
+            return (
+              <div key={title} className="card admin-media-group-card">
+                <div className="admin-media-group-header">
+                  <div>
+                    <h3 style={{ margin:'0 0 4px' }}>{rows[0]?.pois?.slug ? <Link href={`/poi/${rows[0].pois.slug}`} className="poi-inline-link">{title}</Link> : title}</h3>
+                    <p className="muted" style={{ margin:0 }}>{rows.length} Bild{rows.length === 1 ? '' : 'er'} · Statusfilter: {status}</p>
+                  </div>
+                  <div style={{ display:'flex', gap:8, flexWrap:'wrap', alignItems:'center' }}>
+                    <label className="admin-media-selectall">
+                      <input
+                        type="checkbox"
+                        checked={allSelected}
+                        ref={(el) => { if (el) el.indeterminate = !allSelected && someSelected }}
+                        onChange={(e) => toggleGroup(rows, e.target.checked)}
+                      />
+                      Alle markieren
+                    </label>
+                    <button type="button" className="btn btn-secondary" disabled={!rows.some((row) => isSelected(row.id)) || busy} onClick={() => updateImage({ ids: rows.filter((row) => isSelected(row.id)).map((row) => row.id), status:'approved' })}>Gruppe freigeben</button>
+                  </div>
+                </div>
+
+                <div className="admin-media-grid">
+                  {rows.map((img) => {
+                    const selected = isSelected(img.id)
+                    const previewUrl = visibleImageUrl(img)
+                    return (
+                      <article
+                        key={img.id}
+                        className={`admin-media-thumb ${selected ? 'is-selected' : ''} ${activePreview?.id === img.id ? 'is-active' : ''}`}
+                        onClick={() => setActivePreview(img)}
+                      >
+                        <label className="admin-media-check" onClick={(e) => e.stopPropagation()}>
+                          <input type="checkbox" checked={selected} onChange={() => toggleSelect(img.id)} />
+                        </label>
+                        <div className="admin-media-thumb-image">
+                          {previewUrl ? <img src={previewUrl} alt={img.caption || title} loading="lazy" /> : <div className="muted">Kein Bild</div>}
+                        </div>
+                        <div className="admin-media-thumb-body">
+                          <div className="admin-media-thumb-topline">
+                            <span className={`status-pill status-${img.status}`}>{img.status}</span>
+                            {img.is_cover ? <span className="badge">Cover</span> : null}
+                            {img.is_gallery_pick ? <span className="badge">Galerie</span> : null}
+                          </div>
+                          <strong className="admin-media-thumb-caption">{img.caption || 'Ohne Bildtext'}</strong>
+                          <span className="muted admin-media-thumb-date">{formatDate(img.created_at)}</span>
+                        </div>
+                      </article>
+                    )
+                  })}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+
+        <aside className="card admin-media-preview-card">
+          {!activePreview ? <p className="muted">Keine Bilder gefunden.</p> : <>
+            <div className="admin-media-preview-image">
+              {largeImageUrl(activePreview) ? <img src={largeImageUrl(activePreview)} alt={activePreview.caption || activePreview.pois?.title || 'Bild'} /> : <div className="muted">Kein Bild verfügbar</div>}
+            </div>
+            <div className="admin-media-preview-meta">
+              <h3 style={{ margin:'0 0 6px' }}>{activePreview.pois?.title || 'Ohne POI'}</h3>
+              <p style={{ margin:'0 0 8px' }}>{activePreview.caption || 'Kein Bildtext vorhanden.'}</p>
+              <div style={{ display:'flex', gap:8, flexWrap:'wrap', marginBottom:8 }}>
+                <span className={`status-pill status-${activePreview.status}`}>{activePreview.status}</span>
+                {activePreview.is_cover ? <span className="badge">Aktuelles Cover</span> : null}
+                {activePreview.is_gallery_pick ? <span className="badge">In Galerie</span> : null}
+              </div>
+              <p className="muted" style={{ margin:'0 0 14px' }}>Hochgeladen am {formatDate(activePreview.created_at)}</p>
+              <div style={{ display:'grid', gap:8 }}>
+                <button type="button" className="btn" disabled={busy} onClick={() => updateImage({ id: activePreview.id, status:'approved' })}>Freigeben</button>
+                <button type="button" className="btn btn-danger" disabled={busy} onClick={() => updateImage({ id: activePreview.id, status:'rejected' })}>Ablehnen</button>
+                <button type="button" className="btn btn-secondary" disabled={busy} onClick={() => updateImage({ id: activePreview.id, is_cover:true })}>Als Cover festlegen</button>
+                <button type="button" className="btn btn-secondary" disabled={busy} onClick={() => updateImage({ id: activePreview.id, is_gallery_pick: !activePreview.is_gallery_pick })}>{activePreview.is_gallery_pick ? 'Aus Galerie entfernen' : 'Zur Galerie hinzufügen'}</button>
+              </div>
+            </div>
+          </>}
+        </aside>
+      </div>
+    </main>
+  )
+}

@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 700">
+<defs><linearGradient id="g" x1="0" x2="1"><stop stop-color="#334155"/><stop offset="1" stop-color="#0f766e"/></linearGradient></defs>
+<rect width="1200" height="700" fill="url(#g)"/>
+<text x="70" y="610" font-size="64" fill="white" font-family="Arial, sans-serif" font-weight="700">Reiseempfehlung</text>
+</svg>

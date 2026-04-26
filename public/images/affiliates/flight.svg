@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 700">
+<defs><linearGradient id="g" x1="0" x2="1"><stop stop-color="#2563eb"/><stop offset="1" stop-color="#38bdf8"/></linearGradient></defs>
+<rect width="1200" height="700" fill="url(#g)"/>
+<ellipse cx="960" cy="140" rx="120" ry="55" fill="#fff" opacity=".28"/>
+<ellipse cx="860" cy="185" rx="150" ry="62" fill="#fff" opacity=".2"/>
+<path d="M0 540 C250 470 540 470 820 540 S1040 600 1200 560 V700 H0 Z" fill="#e0f2fe" opacity=".25"/>
+<path d="M350 320 l290 70 l90 -20 l130 48 l-20 30 l-130 -18 l-98 20 l-262 -78 l-110 52 l-42 -8 l78 -78 l-108 -32 l28 -18 l154 12z" fill="white"/>
+<text x="70" y="610" font-size="64" fill="white" font-family="Arial, sans-serif" font-weight="700">Anreise planen</text>
+</svg>
