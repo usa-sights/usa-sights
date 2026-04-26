@@ -39,24 +39,28 @@ function getTokenFromBrowserStorage() {
   return null
 }
 
+function withTimeout(promise, ms = 1200) {
+  return Promise.race([
+    promise,
+    new Promise((resolve) => window.setTimeout(() => resolve(null), ms)),
+  ])
+}
+
 async function getAuthToken() {
+  // Production issue observed on Vercel/Chrome/Firefox: Supabase's LockManager can
+  // occasionally delay getSession() long enough that account/admin pages remain
+  // in "Lädt ...". The browser storage already contains the valid access token,
+  // so use it first and keep getSession() only as a bounded fallback.
+  const storedToken = getTokenFromBrowserStorage()
+  if (storedToken) return storedToken
+
   const supabase = createBrowserSupabaseClient()
 
-  // First use the official Supabase session API. This covers normal email/password
-  // sessions and keeps token refresh behavior intact.
-  const { data } = await supabase.auth.getSession()
-  if (data.session?.access_token) return data.session.access_token
+  const sessionResult = await withTimeout(supabase.auth.getSession())
+  const sessionToken = sessionResult?.data?.session?.access_token
+  if (sessionToken) return sessionToken
 
-  // On production domains, especially directly after redirects or hard reloads,
-  // getSession() can briefly return null while the browser storage already contains
-  // the valid session. Retry once before falling back to direct storage parsing.
   await new Promise((resolve) => window.setTimeout(resolve, 80))
-  const retry = await supabase.auth.getSession()
-  if (retry.data.session?.access_token) return retry.data.session.access_token
-
-  // Final fallback for existing deployed sessions. The token is still the same
-  // Supabase token; we only read it so our own /api/me/* routes receive the
-  // Authorization header they already expect.
   return getTokenFromBrowserStorage()
 }
 
