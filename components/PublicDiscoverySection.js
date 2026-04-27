@@ -1,7 +1,8 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
+import { useAppDataRefresh } from '@/hooks/useAppDataRefresh'
 
 function Block({ title, items = [], renderItem }) {
   if (!items?.length) return null
@@ -34,13 +35,21 @@ function DiscoveryCard({ href, title, subtitle = '', text = '', imageUrl = null,
 export default function PublicDiscoverySection({ categoryId = null, titlePrefix = '' }) {
   const [data, setData] = useState(null)
 
-  useEffect(() => {
-    const qs = categoryId ? `?category_id=${categoryId}` : ''
-    fetch(`/api/public/discovery${qs}`, { cache: 'no-store' })
+  const loadDiscovery = useCallback(() => {
+    const params = new URLSearchParams()
+    if (categoryId) params.set('category_id', categoryId)
+    params.set('t', String(Date.now()))
+    fetch(`/api/public/discovery?${params.toString()}`, { cache: 'no-store' })
       .then((r) => r.json())
       .then(setData)
       .catch(() => setData({ newest: [], popular: [], mostReviewed: [] }))
   }, [categoryId])
+
+  useAppDataRefresh(loadDiscovery)
+
+  useEffect(() => {
+    loadDiscovery()
+  }, [loadDiscovery])
 
   if (!data) return null
 

@@ -96,6 +96,12 @@ export default function HomeUserStats() {
   }, [loadStats])
 
   useEffect(() => {
+    const timer = window.setInterval(() => {
+      if (document.visibilityState === 'visible') loadStats()
+    }, 45000)
+    return () => window.clearInterval(timer)
+  }, [loadStats])
+  useEffect(() => {
     const element = containerRef.current
     if (!element || typeof IntersectionObserver === 'undefined') {
       setIsVisible(true)

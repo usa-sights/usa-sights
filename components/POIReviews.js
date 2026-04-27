@@ -125,7 +125,7 @@ export default function POIReviews({ poiId }) {
   const hiddenRatingsOnly = Math.max(0, count - visibleReviews.length)
 
   return (
-    <div className="card" style={{ marginTop: 16 }}>
+    <div id="poi-reviews" className="card" style={{ marginTop: 16 }}>
       <div className="poi-reviews-head">
         <div>
           <h2>Bewertungen & Meinungen</h2>

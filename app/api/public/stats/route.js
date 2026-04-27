@@ -2,6 +2,13 @@ import { createSupabaseAdminClient } from '@/utils/supabase/admin'
 import { safeExactCount } from '@/lib/supabaseDb'
 
 export const dynamic = 'force-dynamic'
+export const revalidate = 0
+
+const noStoreHeaders = {
+  'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0, s-maxage=0',
+  Pragma: 'no-cache',
+  Expires: '0',
+}
 
 export async function GET() {
   const admin = createSupabaseAdminClient()
@@ -19,9 +26,7 @@ export async function GET() {
   ])
 
   return Response.json(
-    { stats: { pois, images, links } },
-    {
-      headers: { 'Cache-Control': 'no-store' },
-    }
+    { stats: { pois, images, links }, generated_at: new Date().toISOString() },
+    { headers: noStoreHeaders }
   )
 }

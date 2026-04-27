@@ -6,16 +6,33 @@ import ClusterPopup from '@/components/map/ClusterPopup'
 import PoiPopup from '@/components/map/PoiPopup'
 import { clusterIcon, iconForCategory } from '@/components/map/mapIcons'
 
-const MapMarker = memo(function MapMarker({ entry, navigationButtonsEnabled, navigationPlatform }) {
+function itemKey(item) {
+  return String(item?.id || item?.slug || '')
+}
+
+const MapMarker = memo(function MapMarker({ entry, navigationButtonsEnabled, navigationPlatform, activePoiId = '', onActivatePoi }) {
   const [isPopupOpen, setIsPopupOpen] = useState(false)
+  const active = useMemo(() => {
+    if (!activePoiId) return false
+    if (entry.type === 'cluster') return (entry.items || []).some((item) => itemKey(item) === String(activePoiId))
+    return itemKey(entry.item) === String(activePoiId)
+  }, [activePoiId, entry])
+
   const popupHandlers = useMemo(() => ({
-    popupopen: () => setIsPopupOpen(true),
+    popupopen: () => {
+      setIsPopupOpen(true)
+      if (entry.type === 'single') onActivatePoi?.(itemKey(entry.item))
+    },
     popupclose: () => setIsPopupOpen(false),
-  }), [])
+    click: () => {
+      if (entry.type === 'single') onActivatePoi?.(itemKey(entry.item))
+    },
+  }), [entry, onActivatePoi])
+
   const icon = useMemo(() => {
-    if (entry.type === 'cluster') return clusterIcon(entry.items.length)
-    return iconForCategory(entry.item?.categories?.name)
-  }, [entry])
+    if (entry.type === 'cluster') return clusterIcon(entry.items.length, { active })
+    return iconForCategory(entry.item?.categories?.name, { active })
+  }, [entry, active])
 
   if (entry.type === 'cluster') {
     return (

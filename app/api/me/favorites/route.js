@@ -76,3 +76,50 @@ export async function GET(req) {
   const items = favs.map((f) => ({ id: f.id, poi_id: f.poi_id, pois: map[f.poi_id] || null })).filter((x) => x.pois)
   return Response.json({ items }, { headers: { 'Cache-Control': 'no-store' } })
 }
+
+export async function POST(req) {
+  const auth = await requireUserRoute(req)
+  if (!auth.ok) return Response.json({ error: auth.error || 'Nicht angemeldet' }, { status: auth.status || 401 })
+
+  let body = {}
+  try { body = await req.json() } catch {}
+  const poiId = body?.poi_id
+  if (!poiId) return Response.json({ error: 'poi_id fehlt' }, { status: 400 })
+
+  const { data: existing } = await auth.admin
+    .from('favorites')
+    .select('id')
+    .eq('user_id', auth.user.id)
+    .eq('poi_id', poiId)
+    .maybeSingle()
+
+  if (existing?.id) return Response.json({ item: existing, already_exists: true }, { headers: { 'Cache-Control': 'no-store' } })
+
+  const { data, error } = await auth.admin
+    .from('favorites')
+    .insert({ user_id: auth.user.id, poi_id: poiId })
+    .select('id,poi_id')
+    .single()
+
+  if (error) return Response.json({ error: error.message }, { status: 500 })
+  return Response.json({ item: data }, { headers: { 'Cache-Control': 'no-store' } })
+}
+
+export async function DELETE(req) {
+  const auth = await requireUserRoute(req)
+  if (!auth.ok) return Response.json({ error: auth.error || 'Nicht angemeldet' }, { status: auth.status || 401 })
+
+  let body = {}
+  try { body = await req.json() } catch {}
+  const poiId = body?.poi_id
+  if (!poiId) return Response.json({ error: 'poi_id fehlt' }, { status: 400 })
+
+  const { error } = await auth.admin
+    .from('favorites')
+    .delete()
+    .eq('user_id', auth.user.id)
+    .eq('poi_id', poiId)
+
+  if (error) return Response.json({ error: error.message }, { status: 500 })
+  return Response.json({ ok: true }, { headers: { 'Cache-Control': 'no-store' } })
+}

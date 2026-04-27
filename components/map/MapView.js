@@ -143,7 +143,16 @@ export default function MapView({
         <LocateUserControl />
         <MapResizer watchKey={`${isFullscreen}-${mapStyle}-${normalizedPois.length}`} />
         {onPick ? <PickHandler onPick={onPick} /> : null}
-        {markerEntries.map((entry, idx) => <MapMarker key={entry.id || `${entry.type}-${idx}`} entry={entry} navigationButtonsEnabled={navigationButtonsEnabled} navigationPlatform={navigationPlatform} />)}
+        {markerEntries.map((entry, idx) => (
+          <MapMarker
+            key={entry.id || `${entry.type}-${idx}`}
+            entry={entry}
+            navigationButtonsEnabled={navigationButtonsEnabled}
+            navigationPlatform={navigationPlatform}
+            activePoiId={activePoiId}
+            onActivatePoi={setActivePoiId}
+          />
+        ))}
         {pickedCoords?.lat && pickedCoords?.lng ? <Marker position={[pickedCoords.lat, pickedCoords.lng]} icon={iconForCategory('picked')}><Popup>Ausgewählter Punkt</Popup></Marker> : null}
       </MapContainer>
     </div>

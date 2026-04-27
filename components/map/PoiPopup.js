@@ -1,9 +1,10 @@
 'use client'
 
-import { memo, useEffect, useRef, useState } from 'react'
+import { memo } from 'react'
 import Link from 'next/link'
-import { ArrowRight, MapPinned, Navigation, Apple } from 'lucide-react'
-import { getNavigationButtons, getPoiHref, getPreviewImageUrl, withCacheBust } from '@/lib/map/poiUtils'
+import { ArrowRight, MapPinned, MessageCircle, Navigation, Apple, Star } from 'lucide-react'
+import { getNavigationButtons, getPoiHref, getPoiReviewHref } from '@/lib/map/poiUtils'
+import SmartImage from '@/components/map/SmartImage'
 
 function AppleMapsIcon() {
   return (
@@ -22,61 +23,31 @@ function GoogleMapsIcon() {
 }
 
 const PoiPopup = memo(function PoiPopup({ item, navigationButtonsEnabled = true }) {
-  const [imageUrl, setImageUrl] = useState(() => item.previewImageUrl || getPreviewImageUrl(item) || '')
-  const imageRequestKeyRef = useRef('')
   const shortText = item.short_description || item.categories?.name || ''
   const navigationButtons = getNavigationButtons(item, navigationButtonsEnabled)
   const showNavigation = navigationButtons.length > 0
-
-  useEffect(() => {
-    setImageUrl(getPreviewImageUrl(item) || '')
-    imageRequestKeyRef.current = ''
-  }, [item.cover_thumb_url, item.cover_url, item.image_url, item.thumbnail_url, item.id, item.slug])
-
-  useEffect(() => {
-    if (item.previewImageUrl || getPreviewImageUrl(item)) return
-
-    const paths = [item.cover_thumb_path, item.cover_path].filter(Boolean)
-    if (!paths.length) return
-
-    const requestKey = paths.join('|')
-    if (requestKey === imageRequestKeyRef.current) return
-    imageRequestKeyRef.current = requestKey
-
-    let active = true
-    fetch('/api/images/signed-urls', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ paths }),
-    })
-      .then((res) => res.ok ? res.json() : null)
-      .then((data) => {
-        if (!active) return
-        const url = data?.urls?.[item.cover_thumb_path] || data?.urls?.[item.cover_path] || ''
-        if (url) setImageUrl(withCacheBust(url, item.id || item.slug))
-      })
-      .catch(() => {})
-
-    return () => {
-      active = false
-    }
-  }, [item.cover_thumb_path, item.cover_path, item.id, item.slug])
+  const ratingAverage = Number(item.rating_average || 0)
+  const ratingCount = Number(item.rating_count || 0)
+  const commentCount = Number(item.comment_count || 0)
+  const hasRatingDetails = ratingCount > 0 || commentCount > 0
 
   return (
     <div className="map-popup-card">
-      {imageUrl ? (
-        <img
-          className="map-popup-image"
-          src={imageUrl}
-          alt={item.title || 'POI Bild'}
-          loading="lazy"
-          onError={() => setImageUrl('')}
-        />
-      ) : null}
+      <SmartImage item={item} className="map-popup-image" alt={item.title || 'POI Bild'} width={360} height={200} />
       <div className="map-popup-body">
         <strong>{item.title}</strong>
         {shortText ? <div className="muted" style={{ marginTop: 4 }}>{shortText}</div> : null}
         {(item.city || item.state) ? <div className="muted" style={{ marginTop: 6 }}>{[item.city, item.state].filter(Boolean).join(', ')}</div> : null}
+        {hasRatingDetails ? (
+          <div className="map-popup-meta-row" aria-label="Bewertungen und Kommentare">
+            {ratingCount > 0 ? (
+              <span className="map-rating-pill"><Star size={14} />{ratingAverage ? ratingAverage.toFixed(1) : '0.0'} <small>({ratingCount.toLocaleString('de-DE')})</small></span>
+            ) : null}
+            {commentCount > 0 ? (
+              <Link href={getPoiReviewHref(item)} className="map-comment-pill"><MessageCircle size={14} />{commentCount.toLocaleString('de-DE')} Kommentare</Link>
+            ) : null}
+          </div>
+        ) : null}
         <div className="map-popup-actions">
           <Link href={getPoiHref(item)} className="map-popup-link map-popup-detail-link">
             <span className="map-popup-link-main">
