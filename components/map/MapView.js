@@ -5,12 +5,11 @@ import { MapContainer, Marker, Popup, TileLayer, useMap, useMapEvents } from 're
 import 'leaflet/dist/leaflet.css'
 import MapControls, { LocateUserButton, TILE_PRESETS } from '@/components/map/MapControls'
 import MapMarker from '@/components/map/MapMarker'
+import FullscreenPoiSidebar from '@/components/map/FullscreenPoiSidebar'
 import { iconForCategory } from '@/components/map/mapIcons'
 
 function PickHandler({ onPick }) {
-  useMapEvents({
-    click(e) { onPick?.({ lat: e.latlng.lat, lng: e.latlng.lng }) },
-  })
+  useMapEvents({ click(e) { onPick?.({ lat: e.latlng.lat, lng: e.latlng.lng }) } })
   return null
 }
 
@@ -43,12 +42,10 @@ function ViewportTracker({ onViewportChange, onZoomChange, onVisibleBoundsChange
       visibleBoundsRef.current?.(payload)
       callbackRef.current?.(payload)
     }
-
     function scheduleEmit() {
       if (timerRef.current) clearTimeout(timerRef.current)
       timerRef.current = setTimeout(emit, 180)
     }
-
     emit()
     map.on('moveend', scheduleEmit)
     map.on('zoomend', scheduleEmit)
@@ -61,7 +58,6 @@ function ViewportTracker({ onViewportChange, onZoomChange, onVisibleBoundsChange
 
   return null
 }
-
 
 function LocateUserControl() {
   const map = useMap()
@@ -88,11 +84,7 @@ function LocateUserControl() {
     )
   }
 
-  return (
-    <div className="map-locate-control leaflet-control">
-      <LocateUserButton onLocate={locateUser} status={status} />
-    </div>
-  )
+  return <div className="map-locate-control leaflet-control"><LocateUserButton onLocate={locateUser} status={status} /></div>
 }
 
 function MapResizer({ watchKey }) {
@@ -121,11 +113,10 @@ export default function MapView({
 }) {
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [mapStyle, setMapStyle] = useState('street')
+  const [activePoiId, setActivePoiId] = useState('')
 
   useEffect(() => {
-    function onKey(event) {
-      if (event.key === 'Escape') setIsFullscreen(false)
-    }
+    function onKey(event) { if (event.key === 'Escape') setIsFullscreen(false) }
     if (isFullscreen) window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [isFullscreen])
@@ -143,36 +134,17 @@ export default function MapView({
 
   return (
     <div className={shellClassName} data-map-context={mapContext} style={{ position: isFullscreen ? 'fixed' : 'relative', height: effectiveHeight, width: '100%', minHeight: 420 }}>
-      <MapControls
-        mapStyle={mapStyle}
-        setMapStyle={setMapStyle}
-        showTrailToggle={showTrailToggle}
-        fullScreen={fullScreen}
-        isFullscreen={isFullscreen}
-        setIsFullscreen={setIsFullscreen}
-      />
+      <MapControls mapStyle={mapStyle} setMapStyle={setMapStyle} showTrailToggle={showTrailToggle} fullScreen={fullScreen} isFullscreen={isFullscreen} setIsFullscreen={setIsFullscreen} />
+      {isFullscreen ? <FullscreenPoiSidebar markerEntries={markerEntries} activePoiId={activePoiId} onSelectPoi={setActivePoiId} /> : null}
       <MapContainer center={initialCenter} zoom={4} scrollWheelZoom style={{ height: effectiveHeight, width: '100%', minHeight: 420 }}>
         <TileLayer attribution={tile.attribution} url={tile.url} />
-        {(tile.overlays || []).map((overlay) => (
-          <TileLayer key={overlay.url} attribution={overlay.attribution} url={overlay.url} zIndex={overlay.zIndex || 2} />
-        ))}
+        {(tile.overlays || []).map((overlay) => <TileLayer key={overlay.url} attribution={overlay.attribution} url={overlay.url} zIndex={overlay.zIndex || 2} />)}
         <ViewportTracker onViewportChange={onViewportChange} onZoomChange={onZoomChange} onVisibleBoundsChange={onVisibleBoundsChange} />
         <LocateUserControl />
         <MapResizer watchKey={`${isFullscreen}-${mapStyle}-${normalizedPois.length}`} />
         {onPick ? <PickHandler onPick={onPick} /> : null}
-        {markerEntries.map((entry, idx) => (
-          <MapMarker
-            key={entry.id || `${entry.type}-${idx}`}
-            entry={entry}
-            navigationButtonsEnabled={navigationButtonsEnabled}
-            navigationPlatform={navigationPlatform}
-          />
-        ))}
-        {pickedCoords?.lat && pickedCoords?.lng ? (
-          <Marker position={[pickedCoords.lat, pickedCoords.lng]} icon={iconForCategory('picked')}>
-            <Popup>Ausgewählter Punkt</Popup>
-          </Marker>
-        ) : null}
+        {markerEntries.map((entry, idx) => <MapMarker key={entry.id || `${entry.type}-${idx}`} entry={entry} navigationButtonsEnabled={navigationButtonsEnabled} navigationPlatform={navigationPlatform} />)}
+        {pickedCoords?.lat && pickedCoords?.lng ? <Marker position={[pickedCoords.lat, pickedCoords.lng]} icon={iconForCategory('picked')}><Popup>Ausgewählter Punkt</Popup></Marker> : null}
       </MapContainer>
     </div>
   )

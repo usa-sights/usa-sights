@@ -109,6 +109,6 @@ export async function GET(req) {
     offset,
     has_more: (offset + limit) < (count || 0)
   }, {
-    headers: { 'Cache-Control': 'public, max-age=30, stale-while-revalidate=300' }
+    headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate' }
   })
 }

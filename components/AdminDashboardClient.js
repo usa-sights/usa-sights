@@ -124,7 +124,7 @@ export default function AdminDashboardClient() {
       if (document.visibilityState === 'visible') refresh()
     }
 
-    const interval = window.setInterval(refresh, 30000)
+    const interval = window.setInterval(refresh, 120000)
     window.addEventListener('focus', refresh)
     window.addEventListener('app-data-changed', refresh)
     document.addEventListener('visibilitychange', handleVisibility)

@@ -17,18 +17,21 @@ export async function GET(req) {
   const { searchParams } = new URL(req.url)
   const poiId = searchParams.get('poi_id')
   const status = searchParams.get('status')
+  const limit = Math.min(Math.max(Number(searchParams.get('limit') || 72), 12), 240)
+  const offset = Math.max(Number(searchParams.get('offset') || 0), 0)
 
   let query = auth.admin
     .from('poi_images')
-    .select('*, pois(title,slug,latitude,longitude)')
+    .select('*, pois(title,slug,latitude,longitude)', { count: 'exact' })
     .order('created_at', { ascending: false })
 
   if (poiId) query = query.eq('poi_id', poiId)
   if (status) query = query.eq('status', status)
+  query = query.range(offset, offset + limit - 1)
 
-  const { data, error } = await query
+  const { data, error, count } = await query
   if (error) return Response.json({ error: error.message }, { status: 500 })
-  return Response.json({ items: data || [] }, { headers: { 'Cache-Control': 'no-store' } })
+  return Response.json({ items: data || [], total: count || 0, limit, offset, has_more: offset + limit < (count || 0) }, { headers: { 'Cache-Control': 'no-store' } })
 }
 
 export async function PUT(req) {
