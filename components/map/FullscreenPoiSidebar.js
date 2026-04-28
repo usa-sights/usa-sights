@@ -131,8 +131,13 @@ const FullscreenPoiSidebar = memo(function FullscreenPoiSidebar({ markerEntries 
         <div className="map-fullscreen-preview">
           <SmartImage item={active} alt={active.title || 'POI'} width={420} height={240} />
           <div className="map-fullscreen-preview-body">
-            <strong>{active.title || 'POI'}</strong>
-            <PoiMeta poi={active} />
+            <div className="map-fullscreen-preview-head">
+              <span className="map-fullscreen-preview-inline-thumb"><SmartImage item={active} alt="" width={120} height={84} fallback={<ImageIcon size={16} />} /></span>
+              <span>
+                <strong>{active.title || 'POI'}</strong>
+                <PoiMeta poi={active} />
+              </span>
+            </div>
             {active.short_description ? <p>{truncateText(active.short_description, 170)}</p> : null}
             <div className="map-fullscreen-preview-actions">
               <Link href={getPoiHref(active)} className="map-fullscreen-preview-link"><MapPinned size={16} />Details öffnen<ArrowRight size={15} /></Link>

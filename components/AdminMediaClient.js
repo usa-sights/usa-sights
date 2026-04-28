@@ -122,6 +122,21 @@ export default function AdminMediaClient() {
   const someVisibleSelected = filtered.some((row) => selectedIds.includes(row.id))
   const pageStart = total ? page * pageSize + 1 : 0
   const pageEnd = Math.min((page + 1) * pageSize, total)
+  const activePreviewIndex = activePreview ? filtered.findIndex((row) => row.id === activePreview.id) : -1
+
+  function showPreviousPreview(event) {
+    event?.stopPropagation?.()
+    if (!filtered.length) return
+    const index = activePreviewIndex >= 0 ? activePreviewIndex : 0
+    setActivePreview(filtered[(index - 1 + filtered.length) % filtered.length])
+  }
+
+  function showNextPreview(event) {
+    event?.stopPropagation?.()
+    if (!filtered.length) return
+    const index = activePreviewIndex >= 0 ? activePreviewIndex : -1
+    setActivePreview(filtered[(index + 1) % filtered.length])
+  }
 
   function isSelected(id) { return selectedIds.includes(id) }
   function toggleSelect(id) { setSelectedIds((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]) }
@@ -152,6 +167,17 @@ export default function AdminMediaClient() {
     setMessage(data.error || data.message || 'Bilder gelöscht')
     if (!data.error) { setSelectedIds([]); await load(); window.dispatchEvent(new Event('app-data-changed')) }
   }
+
+  useEffect(() => {
+    if (!previewFullscreen) return
+    function onKey(event) {
+      if (event.key === 'Escape') setPreviewFullscreen(false)
+      if (event.key === 'ArrowLeft') showPreviousPreview(event)
+      if (event.key === 'ArrowRight') showNextPreview(event)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [previewFullscreen, activePreviewIndex, filtered])
 
   return (
     <main className="container admin-editor-container">
@@ -224,7 +250,13 @@ export default function AdminMediaClient() {
       {previewFullscreen && activePreview ? (
         <div className="admin-media-lightbox" role="dialog" aria-modal="true" onClick={() => setPreviewFullscreen(false)}>
           <button type="button" className="admin-media-lightbox-close" onClick={() => setPreviewFullscreen(false)}>Schließen</button>
+          {filtered.length > 1 ? <button type="button" className="admin-media-lightbox-nav admin-media-lightbox-prev" onClick={showPreviousPreview} aria-label="Vorheriges Bild">‹</button> : null}
           {largeImageUrl(activePreview) ? <img src={largeImageUrl(activePreview)} alt={activePreview.caption || activePreview.pois?.title || "Bild"} onClick={(e) => e.stopPropagation()} /> : null}
+          {filtered.length > 1 ? <button type="button" className="admin-media-lightbox-nav admin-media-lightbox-next" onClick={showNextPreview} aria-label="Nächstes Bild">›</button> : null}
+          <div className="admin-media-lightbox-caption" onClick={(e) => e.stopPropagation()}>
+            <strong>{activePreview.pois?.title || 'Ohne POI'}</strong>
+            <span>{activePreviewIndex + 1} / {filtered.length} · {activePreview.caption || 'Kein Bildtext'}</span>
+          </div>
         </div>
       ) : null}
     </main>

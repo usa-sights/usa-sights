@@ -70,14 +70,17 @@ export async function GET(req) {
 
       const chosen = Object.values(chosenByPoi)
       if (chosen.length) {
-        const thumbPaths = chosen.map((x) => deriveThumbPath(x.path))
-        const signed = await admin.storage.from('poi-images').createSignedUrls(thumbPaths, 3600)
-        const signedByPoi = {}
-        for (let i = 0; i < chosen.length; i += 1) {
-          signedByPoi[chosen[i].poi_id] = signed.data?.[i]?.signedUrl || null
+        const paths = Array.from(new Set(chosen.flatMap((x) => [deriveThumbPath(x.path), x.path]).filter(Boolean)))
+        const signed = await admin.storage.from('poi-images').createSignedUrls(paths, 3600)
+        const signedByPath = {}
+        for (let i = 0; i < paths.length; i += 1) {
+          signedByPath[paths[i]] = signed.data?.[i]?.signedUrl || null
         }
+        const chosenByPoiId = Object.fromEntries(chosen.map((img) => [img.poi_id, img]))
         for (const row of (poiRows || [])) {
-          coverBySlug[row.slug] = signedByPoi[row.id] || null
+          const img = chosenByPoiId[row.id]
+          const thumbPath = img ? deriveThumbPath(img.path) : null
+          coverBySlug[row.slug] = (thumbPath && signedByPath[thumbPath]) || (img?.path && signedByPath[img.path]) || null
         }
       }
     }

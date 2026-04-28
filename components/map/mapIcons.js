@@ -1,7 +1,9 @@
 import L from 'leaflet'
+import { getPreviewImageUrl } from '@/lib/map/poiUtils'
 
 const categoryIconCache = new Map()
 const clusterIconCache = new Map()
+const poiImageIconCache = new Map()
 
 function emojiForCategory(name) {
   const key = String(name || '').toLowerCase()
@@ -28,6 +30,25 @@ export function iconForCategory(name, { active = false } = {}) {
     popupAnchor: [0, -12],
   })
   categoryIconCache.set(key, icon)
+  return icon
+}
+
+
+export function iconForPoi(item = {}, { active = false } = {}) {
+  const imageUrl = getPreviewImageUrl(item)
+  if (!imageUrl) return iconForCategory(item?.categories?.name || item?.category, { active })
+  const key = `${imageUrl}:${active ? 'active' : 'normal'}`
+  if (poiImageIconCache.has(key)) return poiImageIconCache.get(key)
+
+  const safeUrl = String(imageUrl).replace(/"/g, '&quot;')
+  const icon = L.divIcon({
+    className: '',
+    html: `<div class="map-marker-photo${active ? ' is-active' : ''}" aria-hidden="true"><img src="${safeUrl}" alt="" loading="lazy" /></div>`,
+    iconSize: active ? [48, 48] : [40, 40],
+    iconAnchor: active ? [24, 24] : [20, 20],
+    popupAnchor: [0, -18],
+  })
+  poiImageIconCache.set(key, icon)
   return icon
 }
 

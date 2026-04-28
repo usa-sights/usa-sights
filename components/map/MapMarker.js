@@ -4,7 +4,7 @@ import { memo, useMemo, useState } from 'react'
 import { Marker, Popup } from 'react-leaflet'
 import ClusterPopup from '@/components/map/ClusterPopup'
 import PoiPopup from '@/components/map/PoiPopup'
-import { clusterIcon, iconForCategory } from '@/components/map/mapIcons'
+import { clusterIcon, iconForPoi } from '@/components/map/mapIcons'
 
 function itemKey(item) {
   return String(item?.id || item?.slug || '')
@@ -31,7 +31,7 @@ const MapMarker = memo(function MapMarker({ entry, navigationButtonsEnabled, nav
 
   const icon = useMemo(() => {
     if (entry.type === 'cluster') return clusterIcon(entry.items.length, { active })
-    return iconForCategory(entry.item?.categories?.name, { active })
+    return iconForPoi(entry.item, { active })
   }, [entry, active])
 
   if (entry.type === 'cluster') {
