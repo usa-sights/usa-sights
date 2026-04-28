@@ -74,20 +74,23 @@ async function buildReviewStats(admin, items = []) {
 
   const { data: reviews } = await admin
     .from('poi_reviews')
-    .select('id,poi_id,rating,review_text')
+    .select('id,poi_id,user_id,rating,review_text')
     .in('poi_id', poiIds)
 
   const byPoi = new Map()
   const reviewIds = []
   for (const review of (reviews || [])) {
     reviewIds.push(review.id)
-    const current = byPoi.get(review.poi_id) || { ratingSum: 0, ratingCount: 0, commentCount: 0, reviewIds: [] }
+    const current = byPoi.get(review.poi_id) || { ratingSum: 0, ratingCount: 0, commentCount: 0, commentUserIds: new Set(), reviewIds: [] }
     const rating = Number(review.rating || 0)
     if (rating > 0) {
       current.ratingSum += rating
       current.ratingCount += 1
     }
-    if (String(review.review_text || '').trim()) current.commentCount += 1
+    if (String(review.review_text || '').trim()) {
+      current.commentCount += 1
+      if (review.user_id) current.commentUserIds.add(review.user_id)
+    }
     current.reviewIds.push(review.id)
     byPoi.set(review.poi_id, current)
   }
@@ -95,7 +98,7 @@ async function buildReviewStats(admin, items = []) {
   if (reviewIds.length) {
     const { data: replies } = await admin
       .from('poi_review_replies')
-      .select('review_id')
+      .select('review_id,user_id')
       .in('review_id', reviewIds)
 
     const reviewToPoi = new Map()
@@ -106,7 +109,10 @@ async function buildReviewStats(admin, items = []) {
       const poiId = reviewToPoi.get(reply.review_id)
       if (!poiId) continue
       const current = byPoi.get(poiId)
-      if (current) current.commentCount += 1
+      if (current) {
+        current.commentCount += 1
+        if (reply.user_id) current.commentUserIds.add(reply.user_id)
+      }
     }
   }
 
@@ -114,7 +120,20 @@ async function buildReviewStats(admin, items = []) {
     rating_average: stats.ratingCount ? stats.ratingSum / stats.ratingCount : null,
     rating_count: stats.ratingCount,
     comment_count: stats.commentCount,
+    comment_user_count: stats.commentUserIds ? stats.commentUserIds.size : 0,
   }]))
+}
+
+async function buildFavoriteStats(admin, items = []) {
+  const poiIds = items.map((x) => x.id).filter(Boolean)
+  if (!poiIds.length) return {}
+  const { data } = await admin
+    .from('favorites')
+    .select('poi_id')
+    .in('poi_id', poiIds)
+  const counts = new Map()
+  for (const row of (data || [])) counts.set(row.poi_id, (counts.get(row.poi_id) || 0) + 1)
+  return Object.fromEntries(Array.from(counts.entries()).map(([poiId, count]) => [poiId, { favorite_count: count }]))
 }
 
 export async function GET(req) {
@@ -151,15 +170,16 @@ export async function GET(req) {
   if (error) return Response.json({ error: error.message }, { status: 500, headers: noStoreHeaders() })
 
   const items = data || []
-  const [imageMap, statsMap] = await Promise.all([
+  const [imageMap, statsMap, favoriteMap] = await Promise.all([
     buildImageMap(admin, items, includeImages),
     buildReviewStats(admin, items),
+    buildFavoriteStats(admin, items),
   ])
 
   return Response.json({
     items: items.map((item) => {
       const image = imageMap[item.id] || {}
-      const stats = statsMap[item.id] || {}
+      const stats = { ...(statsMap[item.id] || {}), ...(favoriteMap[item.id] || {}) }
       return {
         id: item.id,
         title: item.title,
@@ -183,6 +203,8 @@ export async function GET(req) {
         rating_average: stats.rating_average || null,
         rating_count: stats.rating_count || 0,
         comment_count: stats.comment_count || 0,
+        comment_user_count: stats.comment_user_count || 0,
+        favorite_count: stats.favorite_count || 0,
       }
     }),
     total: count || 0,

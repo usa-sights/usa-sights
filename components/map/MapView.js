@@ -159,14 +159,15 @@ export default function MapView({
     return [39.5, -98.35]
   }, [pickedCoords?.lat, pickedCoords?.lng, normalizedPois])
 
-  const shellClassName = `map-shell${isFullscreen ? ' is-fullscreen' : ''}`
+  const showPoiSidebar = !onPick && markerEntries.length > 0
+  const shellClassName = `map-shell${isFullscreen ? ' is-fullscreen' : ''}${showPoiSidebar ? ' has-poi-sidebar' : ''}`
   const effectiveHeight = isFullscreen ? '100vh' : height
   const tile = TILE_PRESETS[mapStyle] || TILE_PRESETS.street
 
   return (
     <div className={shellClassName} data-map-context={mapContext} style={{ position: isFullscreen ? 'fixed' : 'relative', height: effectiveHeight, width: '100%', minHeight: 420 }}>
       <MapControls mapStyle={mapStyle} setMapStyle={setMapStyle} showTrailToggle={showTrailToggle} fullScreen={fullScreen} isFullscreen={isFullscreen} setIsFullscreen={setIsFullscreen} />
-      {isFullscreen ? <FullscreenPoiSidebar markerEntries={markerEntries} activePoiId={activePoiId} onSelectPoi={setActivePoiId} /> : null}
+      {showPoiSidebar ? <FullscreenPoiSidebar markerEntries={markerEntries} activePoiId={activePoiId} onSelectPoi={setActivePoiId} compactMode={!isFullscreen} /> : null}
       <MapContainer center={initialCenter} zoom={4} scrollWheelZoom style={{ height: effectiveHeight, width: '100%', minHeight: 420 }}>
         <TileLayer attribution={tile.attribution} url={tile.url} />
         {(tile.overlays || []).map((overlay) => <TileLayer key={overlay.url} attribution={overlay.attribution} url={overlay.url} zIndex={overlay.zIndex || 2} />)}

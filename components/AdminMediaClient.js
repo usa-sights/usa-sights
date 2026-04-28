@@ -1,13 +1,11 @@
 'use client'
 
-import dynamic from 'next/dynamic'
 import Link from 'next/link'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { authFetchJson } from '@/utils/authFetch'
 import { deriveThumbPath } from '@/lib/imageUpload'
 
-const AdminMediaMap = dynamic(() => import('@/components/AdminMediaMap'), { ssr: false })
 const PAGE_SIZE_OPTIONS = [48, 72, 120, 180]
 
 function formatDate(value) {
@@ -25,6 +23,7 @@ export default function AdminMediaClient() {
   const [sortKey, setSortKey] = useState('created_at')
   const [selectedIds, setSelectedIds] = useState([])
   const [activePreview, setActivePreview] = useState(null)
+  const [previewFullscreen, setPreviewFullscreen] = useState(false)
   const [busy, setBusy] = useState(false)
   const [loading, setLoading] = useState(false)
   const [page, setPage] = useState(0)
@@ -119,6 +118,8 @@ export default function AdminMediaClient() {
   }, {}), [filtered])
 
   const selectedCount = selectedIds.length
+  const allVisibleSelected = filtered.length > 0 && filtered.every((row) => selectedIds.includes(row.id))
+  const someVisibleSelected = filtered.some((row) => selectedIds.includes(row.id))
   const pageStart = total ? page * pageSize + 1 : 0
   const pageEnd = Math.min((page + 1) * pageSize, total)
 
@@ -126,6 +127,10 @@ export default function AdminMediaClient() {
   function toggleSelect(id) { setSelectedIds((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]) }
   function toggleGroup(rows, checked) {
     const ids = rows.map((row) => row.id)
+    setSelectedIds((prev) => checked ? Array.from(new Set([...prev, ...ids])) : prev.filter((id) => !ids.includes(id)))
+  }
+  function toggleVisible(checked) {
+    const ids = filtered.map((row) => row.id)
     setSelectedIds((prev) => checked ? Array.from(new Set([...prev, ...ids])) : prev.filter((id) => !ids.includes(id)))
   }
   function visibleImageUrl(img) {
@@ -159,7 +164,8 @@ export default function AdminMediaClient() {
           <div><label className="label">Suche auf dieser Seite</label><input className="input" value={search} onChange={(e)=>setSearch(e.target.value)} placeholder="POI oder Bildtext" /></div>
           <div><label className="label">Sortierung</label><select className="select" value={sortKey} onChange={(e)=>setSortKey(e.target.value)}><option value="created_at">neueste zuerst</option><option value="title">POI Titel</option></select></div>
           <div><label className="label">Bilder pro Seite</label><select className="select" value={pageSize} onChange={(e)=>{ setPageSize(Number(e.target.value)); setPage(0) }}>{PAGE_SIZE_OPTIONS.map((n)=><option key={n} value={n}>{n}</option>)}</select></div>
-          <button type="button" className="btn btn-secondary" disabled={!selectedCount || busy} onClick={bulkApprove}>Auswahl freigeben{selectedCount ? ` (${selectedCount})` : ''}</button>
+          <label className="admin-media-selectall admin-media-selectall-page"><input type="checkbox" checked={allVisibleSelected} ref={(el) => { if (el) el.indeterminate = !allVisibleSelected && someVisibleSelected }} onChange={(e) => toggleVisible(e.target.checked)} />Alle angezeigten markieren</label>
+          <button type="button" className="btn btn-secondary" disabled={!selectedCount || busy} onClick={bulkApprove}>Auswahl freigeben{selectedCount ? ` (${selectedCount})` : ""}</button>
           <button type="button" className="btn btn-danger" disabled={!selectedCount || busy} onClick={bulkReject}>Auswahl ablehnen</button>
           <button type="button" className="btn btn-danger" disabled={!selectedCount || busy} onClick={bulkDelete}>Auswahl löschen</button>
         </div>
@@ -172,8 +178,6 @@ export default function AdminMediaClient() {
         </div>
         <p className="muted" style={{ margin:'8px 0 0' }}>Die Administration lädt Bilder seitenweise. So bleibt sie auch bei vielen Nutzer-Uploads schnell und übersichtlich.</p>
       </div>
-
-      <AdminMediaMap items={filtered} onUpdated={() => load()} />
 
       <div className="admin-media-layout">
         <div>
@@ -212,11 +216,17 @@ export default function AdminMediaClient() {
 
         <aside className="card admin-media-preview-card">
           {!activePreview ? <p className="muted">Keine Bilder gefunden.</p> : <>
-            <div className="admin-media-preview-image">{largeImageUrl(activePreview) ? <img src={largeImageUrl(activePreview)} alt={activePreview.caption || activePreview.pois?.title || 'Bild'} /> : <div className="muted">Kein Bild verfügbar</div>}</div>
+            <button type="button" className="admin-media-preview-image" onClick={() => setPreviewFullscreen(true)} title="Großansicht öffnen">{largeImageUrl(activePreview) ? <img src={largeImageUrl(activePreview)} alt={activePreview.caption || activePreview.pois?.title || 'Bild'} /> : <div className="muted">Kein Bild verfügbar</div>}</button>
             <div className="admin-media-preview-meta"><h3 style={{ margin:'0 0 6px' }}>{activePreview.pois?.title || 'Ohne POI'}</h3><p style={{ margin:'0 0 8px' }}>{activePreview.caption || 'Kein Bildtext vorhanden.'}</p><div style={{ display:'flex', gap:8, flexWrap:'wrap', marginBottom:8 }}><span className={`status-pill status-${activePreview.status}`}>{activePreview.status}</span>{activePreview.is_cover ? <span className="badge">Aktuelles Cover</span> : null}{activePreview.is_gallery_pick ? <span className="badge">In Galerie</span> : null}</div><p className="muted" style={{ margin:'0 0 14px' }}>Hochgeladen am {formatDate(activePreview.created_at)}</p><div style={{ display:'grid', gap:8 }}><button type="button" className="btn" disabled={busy} onClick={() => updateImage({ id: activePreview.id, status:'approved' })}>Freigeben</button><button type="button" className="btn btn-danger" disabled={busy} onClick={() => updateImage({ id: activePreview.id, status:'rejected' })}>Ablehnen</button><button type="button" className="btn btn-secondary" disabled={busy} onClick={() => updateImage({ id: activePreview.id, is_cover:true })}>Als Cover festlegen</button><button type="button" className="btn btn-secondary" disabled={busy} onClick={() => updateImage({ id: activePreview.id, is_gallery_pick: !activePreview.is_gallery_pick })}>{activePreview.is_gallery_pick ? 'Aus Galerie entfernen' : 'Zur Galerie hinzufügen'}</button></div></div>
           </>}
         </aside>
       </div>
+      {previewFullscreen && activePreview ? (
+        <div className="admin-media-lightbox" role="dialog" aria-modal="true" onClick={() => setPreviewFullscreen(false)}>
+          <button type="button" className="admin-media-lightbox-close" onClick={() => setPreviewFullscreen(false)}>Schließen</button>
+          {largeImageUrl(activePreview) ? <img src={largeImageUrl(activePreview)} alt={activePreview.caption || activePreview.pois?.title || "Bild"} onClick={(e) => e.stopPropagation()} /> : null}
+        </div>
+      ) : null}
     </main>
   )
 }

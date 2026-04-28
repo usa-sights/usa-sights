@@ -2,7 +2,7 @@
 
 import { memo } from 'react'
 import Link from 'next/link'
-import { ArrowRight, MapPinned, MessageCircle, Navigation, Apple, Star } from 'lucide-react'
+import { ArrowRight, MapPinned, MessageCircle, Navigation, Apple, Star, Heart } from 'lucide-react'
 import { getNavigationButtons, getPoiHref, getPoiReviewHref } from '@/lib/map/poiUtils'
 import SmartImage from '@/components/map/SmartImage'
 
@@ -29,7 +29,9 @@ const PoiPopup = memo(function PoiPopup({ item, navigationButtonsEnabled = true 
   const ratingAverage = Number(item.rating_average || 0)
   const ratingCount = Number(item.rating_count || 0)
   const commentCount = Number(item.comment_count || 0)
-  const hasRatingDetails = ratingCount > 0 || commentCount > 0
+  const commentUserCount = Number(item.comment_user_count || item.comment_users_count || 0)
+  const favoriteCount = Number(item.favorite_count || item.favorites_count || 0)
+  const hasRatingDetails = ratingCount > 0 || commentCount > 0 || favoriteCount > 0
 
   return (
     <div className="map-popup-card">
@@ -41,10 +43,13 @@ const PoiPopup = memo(function PoiPopup({ item, navigationButtonsEnabled = true 
         {hasRatingDetails ? (
           <div className="map-popup-meta-row" aria-label="Bewertungen und Kommentare">
             {ratingCount > 0 ? (
-              <Link href={getPoiReviewHref(item)} className="map-rating-pill"><Star size={14} />{ratingAverage ? ratingAverage.toFixed(1) : '0.0'} <small>({ratingCount.toLocaleString('de-DE')})</small></Link>
+              <Link href={getPoiReviewHref(item)} className="map-rating-pill" title={`${ratingCount.toLocaleString('de-DE')} Bewertungen`}><Star size={14} />{ratingAverage ? ratingAverage.toFixed(1) : '0.0'} <small>({ratingCount.toLocaleString('de-DE')})</small></Link>
             ) : null}
             {commentCount > 0 ? (
-              <Link href={getPoiReviewHref(item)} className="map-comment-pill"><MessageCircle size={14} />{commentCount.toLocaleString('de-DE')} Kommentare</Link>
+              <Link href={getPoiReviewHref(item)} className="map-comment-pill" title={`${commentCount.toLocaleString('de-DE')} Kommentare von ${(commentUserCount || commentCount).toLocaleString('de-DE')} Nutzern`}><MessageCircle size={14} />{commentCount.toLocaleString('de-DE')} Kommentare</Link>
+            ) : null}
+            {favoriteCount > 0 ? (
+              <span className="map-favorite-pill" title={`${favoriteCount.toLocaleString('de-DE')} Vormerkungen als Favorit`}><Heart size={14} />{favoriteCount.toLocaleString('de-DE')}</span>
             ) : null}
           </div>
         ) : null}

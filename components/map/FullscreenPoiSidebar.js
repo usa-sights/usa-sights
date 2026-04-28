@@ -24,17 +24,26 @@ function PoiMeta({ poi, compact = false }) {
   const ratingAverage = Number(poi?.rating_average || 0)
   const ratingCount = Number(poi?.rating_count || 0)
   const commentCount = Number(poi?.comment_count || 0)
-  if (!ratingCount && !commentCount) return null
+  const commentUserCount = Number(poi?.comment_user_count || poi?.comment_users_count || 0)
+  const favoriteCount = Number(poi?.favorite_count || poi?.favorites_count || 0)
+  if (!ratingCount && !commentCount && !favoriteCount) return null
 
   return (
     <span className={`map-sidebar-meta${compact ? ' is-compact' : ''}`}>
-      {ratingCount ? <Link href={getPoiReviewHref(poi)} onClick={(event) => event.stopPropagation()}><Star size={13} />{ratingAverage ? ratingAverage.toFixed(1) : '0.0'} ({ratingCount.toLocaleString('de-DE')})</Link> : null}
-      {commentCount ? <Link href={getPoiReviewHref(poi)} onClick={(event) => event.stopPropagation()}><MessageCircle size={13} />{commentCount.toLocaleString('de-DE')}</Link> : null}
+      {ratingCount ? <Link href={getPoiReviewHref(poi)} title={`${ratingCount.toLocaleString('de-DE')} Bewertungen`} onClick={(event) => event.stopPropagation()}><Star size={13} />{ratingAverage ? ratingAverage.toFixed(1) : '0.0'}</Link> : null}
+      {commentCount ? <Link href={getPoiReviewHref(poi)} title={`${commentCount.toLocaleString('de-DE')} Kommentare von ${(commentUserCount || commentCount).toLocaleString('de-DE')} Nutzern`} onClick={(event) => event.stopPropagation()}><MessageCircle size={13} />{commentCount.toLocaleString('de-DE')}</Link> : null}
+      {favoriteCount ? <span title={`${favoriteCount.toLocaleString('de-DE')} Vormerkungen als Favorit`}><Heart size={13} />{favoriteCount.toLocaleString('de-DE')}</span> : null}
     </span>
   )
 }
 
-const FullscreenPoiSidebar = memo(function FullscreenPoiSidebar({ markerEntries = [], activePoiId = '', onSelectPoi }) {
+function truncateText(value = '', max = 170) {
+  const text = String(value || '').replace(/\s+/g, ' ').trim()
+  if (text.length <= max) return text
+  return text.slice(0, max - 1).trimEnd() + '…'
+}
+
+const FullscreenPoiSidebar = memo(function FullscreenPoiSidebar({ markerEntries = [], activePoiId = '', onSelectPoi, compactMode = false }) {
   const pois = useMemo(() => flattenEntries(markerEntries), [markerEntries])
   const active = useMemo(() => pois.find((poi) => String(poi.id || poi.slug) === String(activePoiId)) || pois[0] || null, [pois, activePoiId])
   const [favoriteIds, setFavoriteIds] = useState(() => new Set())
@@ -84,7 +93,7 @@ const FullscreenPoiSidebar = memo(function FullscreenPoiSidebar({ markerEntries 
   if (!pois.length) return null
 
   return (
-    <aside className="map-fullscreen-sidebar" aria-label="POIs im sichtbaren Kartenausschnitt">
+    <aside className={`map-fullscreen-sidebar${compactMode ? ' is-embedded' : ''}`} aria-label="POIs im sichtbaren Kartenausschnitt">
       <div className="map-fullscreen-sidebar-head">
         <strong>POIs im Ausschnitt</strong>
         <span>{pois.length.toLocaleString('de-DE')}</span>
@@ -124,7 +133,7 @@ const FullscreenPoiSidebar = memo(function FullscreenPoiSidebar({ markerEntries 
           <div className="map-fullscreen-preview-body">
             <strong>{active.title || 'POI'}</strong>
             <PoiMeta poi={active} />
-            {active.short_description ? <p>{active.short_description}</p> : null}
+            {active.short_description ? <p>{truncateText(active.short_description, 170)}</p> : null}
             <div className="map-fullscreen-preview-actions">
               <Link href={getPoiHref(active)} className="map-fullscreen-preview-link"><MapPinned size={16} />Details öffnen<ArrowRight size={15} /></Link>
               <button type="button" className={`map-sidebar-preview-favorite${favoriteIds.has(String(active.id)) ? ' is-active' : ''}`} onClick={() => toggleFavorite(active)}>

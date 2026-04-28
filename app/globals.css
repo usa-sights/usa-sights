@@ -1563,3 +1563,45 @@ pre.code { white-space: pre-wrap; background: #f8fafc; padding: 12px; border-rad
   .map-shell.is-fullscreen .map-locate-control{left:auto!important;right:14px!important;top:158px!important;z-index:930!important}
   .map-shell.is-fullscreen .leaflet-control-attribution{margin-left:380px!important}
 }
+
+/* v110 admin media usability + map sidebar refinements */
+.admin-media-filterbar{grid-template-columns:150px minmax(220px,1fr) 180px 145px minmax(180px,auto) auto auto auto!important}
+.admin-media-selectall-page{min-height:44px;align-self:end;display:inline-flex;align-items:center;justify-content:center;gap:8px;border:1px solid #cbd5e1;border-radius:12px;background:#f8fafc;padding:0 12px;font-weight:800;color:#0f172a;white-space:nowrap}
+.admin-media-preview-card{position:sticky;top:88px;align-self:start}
+.admin-media-preview-image{display:grid;place-items:center;width:100%;min-height:320px;max-height:min(62vh,680px);border:1px solid #e2e8f0;border-radius:18px;background:#f8fafc;overflow:hidden;padding:0;cursor:zoom-in}
+.admin-media-preview-image img{width:100%;height:100%;max-height:min(62vh,680px);object-fit:contain;display:block;background:#f8fafc}
+.admin-media-lightbox{position:fixed;inset:0;z-index:5000;display:grid;place-items:center;background:rgba(15,23,42,.88);padding:56px 22px 22px;cursor:zoom-out}
+.admin-media-lightbox img{max-width:100%;max-height:calc(100vh - 86px);object-fit:contain;border-radius:12px;background:#111827;box-shadow:0 30px 90px rgba(0,0,0,.45)}
+.admin-media-lightbox-close{position:fixed;right:18px;top:16px;z-index:5001;border:1px solid rgba(255,255,255,.4);border-radius:999px;background:rgba(255,255,255,.94);color:#0f172a;font-weight:900;padding:10px 14px;cursor:pointer}
+@media (max-width:1200px){.admin-media-filterbar{grid-template-columns:repeat(2,minmax(0,1fr))!important}.admin-media-selectall-page{width:100%}.admin-media-preview-card{position:static}.admin-media-preview-image{min-height:260px}}
+@media (max-width:700px){.admin-media-filterbar{grid-template-columns:1fr!important}.admin-media-preview-image{min-height:220px}}
+
+@media (min-width:1100px){
+  .map-shell.has-poi-sidebar .map-fullscreen-sidebar{position:absolute;top:0;left:0;bottom:0;z-index:940;width:min(390px,32vw);display:grid;grid-template-rows:auto minmax(0,1fr) auto;gap:0;padding:0;border-radius:0;background:rgba(255,255,255,.98);box-shadow:16px 0 42px rgba(15,23,42,.18);backdrop-filter:blur(10px);pointer-events:auto;overflow:hidden}
+  .map-shell.has-poi-sidebar .map-fullscreen-sidebar-head{padding:12px 14px;border-bottom:1px solid #e2e8f0;background:#fff}
+  .map-shell.has-poi-sidebar .map-sidebar-message{margin:10px 12px 0;border-radius:10px}
+  .map-shell.has-poi-sidebar .map-fullscreen-poi-list{display:block;overflow:auto;padding:0;scrollbar-width:thin;background:#fff}
+  .map-shell.has-poi-sidebar .map-fullscreen-poi-item{position:relative;width:100%;height:92px;min-height:92px;max-height:92px;display:grid;grid-template-columns:minmax(0,1fr) 36px;gap:8px;align-items:start;border:0;border-bottom:1px solid #e2e8f0;border-radius:0;background:#fff;padding:10px 10px 10px 12px;box-shadow:none;overflow:hidden;text-align:left}
+  .map-shell.has-poi-sidebar .map-fullscreen-poi-item:hover,.map-shell.has-poi-sidebar .map-fullscreen-poi-item.is-active{background:#ecfdf5;border-color:#bbf7d0}
+  .map-shell.has-poi-sidebar .map-fullscreen-poi-main{min-width:0;height:100%;display:grid;grid-template-columns:86px minmax(0,1fr);gap:11px;align-items:start;text-align:left;border:0;background:transparent;padding:0;cursor:pointer}
+  .map-shell.has-poi-sidebar .map-fullscreen-poi-thumb{width:86px;height:68px;border-radius:0;overflow:hidden;display:grid;place-items:center;background:#e2e8f0;color:#64748b;flex:0 0 86px;margin-top:1px}
+  .map-shell.has-poi-sidebar .map-fullscreen-poi-thumb img{width:100%;height:100%;object-fit:cover;display:block}
+  .map-shell.has-poi-sidebar .map-fullscreen-poi-copy{min-width:0;display:grid;gap:3px;align-content:start;padding-top:0}
+  .map-shell.has-poi-sidebar .map-fullscreen-poi-copy strong{font-size:.88rem;line-height:1.16;color:#0f172a;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+  .map-shell.has-poi-sidebar .map-fullscreen-poi-copy small{font-size:.73rem;line-height:1.1;color:#64748b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .map-shell.has-poi-sidebar .map-sidebar-meta{display:flex;align-items:center;gap:8px;min-width:0;white-space:nowrap;overflow:hidden;margin-top:1px}
+  .map-shell.has-poi-sidebar .map-sidebar-meta a,.map-shell.has-poi-sidebar .map-sidebar-meta span{display:inline-flex;align-items:center;gap:3px;font-size:.72rem;line-height:1;color:#475569;text-decoration:none;font-weight:900}
+  .map-shell.has-poi-sidebar .map-sidebar-meta a:hover{text-decoration:underline}
+  .map-shell.has-poi-sidebar .map-sidebar-favorite-btn{width:32px;height:32px;border-radius:999px;align-self:start;box-shadow:none;margin-top:0}
+  .map-shell.has-poi-sidebar .map-fullscreen-preview{border-radius:0;margin:0;border:0;border-top:1px solid #e2e8f0;box-shadow:none;max-height:360px;background:#fff;overflow:hidden}
+  .map-shell.has-poi-sidebar .map-fullscreen-preview img{width:100%;height:138px;object-fit:cover;display:block;background:#e2e8f0}
+  .map-shell.has-poi-sidebar .map-fullscreen-preview-body{display:grid;gap:7px;padding:11px 14px 14px}
+  .map-shell.has-poi-sidebar .map-fullscreen-preview-body p{display:-webkit-box!important;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;margin:0;color:#475569;font-size:.86rem;line-height:1.35}
+  .map-shell.has-poi-sidebar .map-fullscreen-preview-actions{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center}
+  .map-shell.has-poi-sidebar .leaflet-top.leaflet-left{left:auto!important;right:14px!important;top:76px!important;z-index:930!important}
+  .map-shell.has-poi-sidebar .leaflet-control-zoom{margin:0!important}
+  .map-shell.has-poi-sidebar .map-locate-control{left:auto!important;right:14px!important;top:158px!important;z-index:930!important;display:block!important;visibility:visible!important}
+  .map-shell.has-poi-sidebar .leaflet-control-attribution{margin-left:min(390px,32vw)!important}
+}
+.map-favorite-pill{display:inline-flex;align-items:center;gap:5px;border-radius:999px;padding:5px 8px;background:#fff1f2;border:1px solid #fecaca;color:#be123c;font-size:.78rem;font-weight:800;text-decoration:none}
+.map-favorite-pill svg{color:#dc2626}
