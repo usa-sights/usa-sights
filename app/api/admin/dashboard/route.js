@@ -227,7 +227,7 @@ export async function GET(req) {
     status: item.status,
   })))
 
-  const recentReviewEntries = recentReviews.map((item) => ({
+  const recentReviewEntries = await attachPoiThumbs(admin, recentReviews.map((item) => ({
     poi_id: item.poi_id,
     type: 'Review',
     icon: 'review',
@@ -237,9 +237,9 @@ export async function GET(req) {
     label: `Bewertung ${item.rating}/5`,
     href: item.pois?.slug ? `/poi/${item.pois.slug}#review-${item.id}` : (item.poi_id ? `/admin/poi/${item.poi_id}` : '/admin/reviews'),
     status: 'published',
-  }))
+  })))
 
-  const recentReplyEntries = recentReplies.map((item) => ({
+  const recentReplyEntries = await attachPoiThumbs(admin, recentReplies.map((item) => ({
     poi_id: item.poi_reviews?.poi_id || null,
     type: 'Antwort',
     icon: 'reply',
@@ -249,9 +249,9 @@ export async function GET(req) {
     label: item.reply_text || 'Antwort',
     href: item.poi_reviews?.pois?.slug ? `/poi/${item.poi_reviews.pois.slug}#reply-${item.id}` : '/admin/reviews',
     status: 'published',
-  }))
+  })))
 
-  const recentLinkEntries = recentLinks.map((item) => ({
+  const recentLinkEntries = await attachPoiThumbs(admin, recentLinks.map((item) => ({
     poi_id: item.poi_id,
     type: 'Link',
     icon: 'link',
@@ -262,7 +262,7 @@ export async function GET(req) {
     href: item.pois?.slug ? `/poi/${item.pois.slug}#poi-link-${item.id}` : '/admin/admin-links',
     status: item.status,
     url: item.url || '',
-  }))
+  })))
 
   const activityFeed = [
     ...recentPoiEntries,

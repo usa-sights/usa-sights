@@ -28,7 +28,7 @@ function PoiMeta({ poi, compact = false }) {
 
   return (
     <span className={`map-sidebar-meta${compact ? ' is-compact' : ''}`}>
-      {ratingCount ? <span><Star size={13} />{ratingAverage ? ratingAverage.toFixed(1) : '0.0'} ({ratingCount.toLocaleString('de-DE')})</span> : null}
+      {ratingCount ? <Link href={getPoiReviewHref(poi)} onClick={(event) => event.stopPropagation()}><Star size={13} />{ratingAverage ? ratingAverage.toFixed(1) : '0.0'} ({ratingCount.toLocaleString('de-DE')})</Link> : null}
       {commentCount ? <Link href={getPoiReviewHref(poi)} onClick={(event) => event.stopPropagation()}><MessageCircle size={13} />{commentCount.toLocaleString('de-DE')}</Link> : null}
     </span>
   )

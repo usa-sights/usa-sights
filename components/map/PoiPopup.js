@@ -41,7 +41,7 @@ const PoiPopup = memo(function PoiPopup({ item, navigationButtonsEnabled = true 
         {hasRatingDetails ? (
           <div className="map-popup-meta-row" aria-label="Bewertungen und Kommentare">
             {ratingCount > 0 ? (
-              <span className="map-rating-pill"><Star size={14} />{ratingAverage ? ratingAverage.toFixed(1) : '0.0'} <small>({ratingCount.toLocaleString('de-DE')})</small></span>
+              <Link href={getPoiReviewHref(item)} className="map-rating-pill"><Star size={14} />{ratingAverage ? ratingAverage.toFixed(1) : '0.0'} <small>({ratingCount.toLocaleString('de-DE')})</small></Link>
             ) : null}
             {commentCount > 0 ? (
               <Link href={getPoiReviewHref(item)} className="map-comment-pill"><MessageCircle size={14} />{commentCount.toLocaleString('de-DE')} Kommentare</Link>

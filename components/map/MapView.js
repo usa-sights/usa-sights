@@ -96,6 +96,37 @@ function MapResizer({ watchKey }) {
   return null
 }
 
+
+function findPoiInEntries(entries = [], activePoiId = "") {
+  if (!activePoiId) return null
+  const target = String(activePoiId)
+  for (const entry of entries || []) {
+    const items = entry?.type === "cluster" ? entry.items : [entry?.item]
+    for (const item of items || []) {
+      if (!item) continue
+      if (String(item.id || item.slug || "") === target) return item
+    }
+  }
+  return null
+}
+
+function ActivePoiFocus({ markerEntries = [], activePoiId = "" }) {
+  const map = useMap()
+  const lastRef = useRef("")
+  useEffect(() => {
+    const poi = findPoiInEntries(markerEntries, activePoiId)
+    if (!poi) return
+    const lat = Number(poi.latitude)
+    const lng = Number(poi.longitude)
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return
+    const key = String(activePoiId) + "-" + lat.toFixed(6) + "-" + lng.toFixed(6)
+    if (key === lastRef.current) return
+    lastRef.current = key
+    map.panTo([lat, lng], { animate: true, duration: 0.35 })
+  }, [map, markerEntries, activePoiId])
+  return null
+}
+
 export default function MapView({
   markerEntries = [],
   normalizedPois = [],
@@ -141,7 +172,8 @@ export default function MapView({
         {(tile.overlays || []).map((overlay) => <TileLayer key={overlay.url} attribution={overlay.attribution} url={overlay.url} zIndex={overlay.zIndex || 2} />)}
         <ViewportTracker onViewportChange={onViewportChange} onZoomChange={onZoomChange} onVisibleBoundsChange={onVisibleBoundsChange} />
         <LocateUserControl />
-        <MapResizer watchKey={`${isFullscreen}-${mapStyle}-${normalizedPois.length}`} />
+        <MapResizer watchKey={`--`} />
+        <ActivePoiFocus markerEntries={markerEntries} activePoiId={activePoiId} />
         {onPick ? <PickHandler onPick={onPick} /> : null}
         {markerEntries.map((entry, idx) => (
           <MapMarker
