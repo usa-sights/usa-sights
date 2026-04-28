@@ -1813,3 +1813,133 @@ pre.code { white-space: pre-wrap; background: #f8fafc; padding: 12px; border-rad
   .map-shell.has-poi-sidebar .leaflet-top.leaflet-left,
   .map-shell.is-fullscreen .leaflet-top.leaflet-left{right:12px!important;top:136px!important;}
 }
+
+/* v114 final correction: admin media controls share one input row and align on the same top edge. */
+.admin-media-filterbar{
+  align-items:start!important;
+  row-gap:12px!important;
+}
+.admin-media-filterbar > div{
+  align-self:start!important;
+  display:grid!important;
+  grid-template-rows:18px 42px!important;
+  gap:8px!important;
+  min-height:68px!important;
+}
+.admin-media-filterbar .label{
+  margin:0!important;
+  height:18px!important;
+  line-height:18px!important;
+  font-size:14px!important;
+  font-weight:700!important;
+}
+.admin-media-filterbar .input,
+.admin-media-filterbar .select{
+  height:42px!important;
+  min-height:42px!important;
+  max-height:42px!important;
+  margin:0!important;
+  font-size:14px!important;
+  font-weight:400!important;
+  line-height:1.2!important;
+}
+.admin-media-filterbar > label,
+.admin-media-filterbar > button{
+  align-self:start!important;
+  margin-top:26px!important;
+  height:42px!important;
+  min-height:42px!important;
+  max-height:42px!important;
+  font-size:14px!important;
+  font-weight:400!important;
+  line-height:1!important;
+}
+.admin-media-selectall-page{
+  display:inline-flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  gap:8px!important;
+  padding:0 14px!important;
+  white-space:nowrap!important;
+}
+.admin-media-filterbar .btn{
+  display:inline-flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  padding:0 14px!important;
+}
+@media (max-width:1279px){
+  .admin-media-filterbar > label,
+  .admin-media-filterbar > button{margin-top:0!important;}
+  .admin-media-filterbar > div{min-height:auto!important;}
+}
+
+/* v114 final correction: favorite login hint appears as a popup/toast instead of inline text. */
+.map-favorite-toast{
+  position:absolute!important;
+  left:50%!important;
+  top:18px!important;
+  transform:translateX(-50%)!important;
+  z-index:5200!important;
+  width:max-content!important;
+  max-width:min(320px,calc(100% - 28px))!important;
+  border-radius:999px!important;
+  border:1px solid #fed7aa!important;
+  background:#fff7ed!important;
+  color:#9a3412!important;
+  box-shadow:0 18px 38px rgba(15,23,42,.22)!important;
+  padding:10px 14px!important;
+  font-size:14px!important;
+  font-weight:700!important;
+  text-align:center!important;
+  pointer-events:none!important;
+}
+.map-shell.is-fullscreen .map-favorite-toast,
+.map-shell.has-poi-sidebar .map-favorite-toast{top:14px!important;}
+
+/* v114 final correction: locate control is forced into the upper-right map control column, never below the POI sidebar. */
+.map-shell.has-poi-sidebar .leaflet-top.leaflet-left,
+.map-shell.is-fullscreen .leaflet-top.leaflet-left{
+  left:auto!important;
+  right:16px!important;
+  top:96px!important;
+  z-index:4500!important;
+}
+.map-shell.has-poi-sidebar .map-locate-control,
+.map-shell.is-fullscreen .map-locate-control{
+  position:absolute!important;
+  left:auto!important;
+  right:16px!important;
+  top:196px!important;
+  bottom:auto!important;
+  transform:none!important;
+  z-index:4600!important;
+  display:block!important;
+  visibility:visible!important;
+  pointer-events:auto!important;
+  margin:0!important;
+}
+.map-shell.has-poi-sidebar .map-locate-btn,
+.map-shell.is-fullscreen .map-locate-btn,
+.map-shell.has-poi-sidebar .leaflet-control-zoom a,
+.map-shell.is-fullscreen .leaflet-control-zoom a{
+  width:44px!important;
+  height:44px!important;
+  min-width:44px!important;
+  min-height:44px!important;
+  display:grid!important;
+  place-items:center!important;
+  background:rgba(15,23,42,.82)!important;
+  color:#fff!important;
+  border:1px solid rgba(255,255,255,.45)!important;
+  box-shadow:0 8px 20px rgba(15,23,42,.18)!important;
+  backdrop-filter:blur(6px)!important;
+}
+.map-shell.has-poi-sidebar .map-locate-btn,
+.map-shell.is-fullscreen .map-locate-btn{border-radius:999px!important;}
+@media (max-width:900px){
+  .map-shell.has-poi-sidebar .leaflet-top.leaflet-left,
+  .map-shell.is-fullscreen .leaflet-top.leaflet-left{right:12px!important;top:88px!important;}
+  .map-shell.has-poi-sidebar .map-locate-control,
+  .map-shell.is-fullscreen .map-locate-control{right:12px!important;top:188px!important;}
+}

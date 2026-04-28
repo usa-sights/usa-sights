@@ -60,6 +60,12 @@ const FullscreenPoiSidebar = memo(function FullscreenPoiSidebar({ markerEntries 
   const [favoriteMessage, setFavoriteMessage] = useState('')
 
   useEffect(() => {
+    if (!favoriteMessage) return undefined
+    const timer = window.setTimeout(() => setFavoriteMessage(''), 3200)
+    return () => window.clearTimeout(timer)
+  }, [favoriteMessage])
+
+  useEffect(() => {
     let activeRequest = true
     authFetchJson('/api/me/favorites')
       .then((data) => {
@@ -112,7 +118,7 @@ const FullscreenPoiSidebar = memo(function FullscreenPoiSidebar({ markerEntries 
         <strong>POIs im Ausschnitt</strong>
         <span>{pois.length.toLocaleString('de-DE')}</span>
       </div>
-      {favoriteMessage ? <div className="map-sidebar-message">{favoriteMessage}</div> : null}
+      {favoriteMessage ? <div className="map-favorite-toast" role="status" aria-live="polite">{favoriteMessage}</div> : null}
       <div className="map-fullscreen-poi-list">
         {pois.map((poi) => {
           const key = String(poi.id || poi.slug)
