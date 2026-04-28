@@ -154,7 +154,7 @@ export default function AdminMediaClient() {
   }
   function largeImageUrl(img) {
     const thumbPath = img.thumb_path || deriveThumbPath(img.path)
-    return urls[img.path] || urls[thumbPath] || img.thumb_url || null
+    return urls[thumbPath] || img.thumb_url || urls[img.path] || null
   }
   async function bulkApprove() { if (selectedIds.length) { await updateImage({ ids: selectedIds, status:'approved' }); setSelectedIds([]) } }
   async function bulkReject() { if (selectedIds.length) { await updateImage({ ids: selectedIds, status:'rejected' }); setSelectedIds([]) } }

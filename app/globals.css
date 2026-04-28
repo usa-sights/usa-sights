@@ -1639,3 +1639,18 @@ pre.code { white-space: pre-wrap; background: #f8fafc; padding: 12px; border-rad
 .map-fullscreen-poi-thumb img,.map-fullscreen-preview img{background:#e2e8f0}
 .map-shell.is-fullscreen .map-locate-control,.map-shell.has-poi-sidebar .map-locate-control{left:auto!important;right:16px!important;top:146px!important;z-index:960!important}
 @media (max-width:900px){.map-shell.has-poi-sidebar .map-locate-control{top:84px!important;right:12px!important}}
+
+/* v112 polish: Admin media controls align cleanly and use normal-weight text. */
+.admin-media-filterbar{align-items:start!important}
+.admin-media-filterbar > div,.admin-media-filterbar > label,.admin-media-filterbar > button{align-self:end!important}
+.admin-media-filterbar .input,.admin-media-filterbar .select,.admin-media-filterbar .btn,.admin-media-selectall-page{min-height:42px!important;height:42px!important;font-size:.94rem!important;font-weight:400!important;line-height:1.2!important;box-sizing:border-box!important}
+.admin-media-filterbar .btn,.admin-media-selectall-page{display:inline-flex!important;align-items:center!important;justify-content:center!important;padding:0 14px!important}
+.admin-media-selectall-page input{margin:0!important;flex:0 0 auto!important}
+@media (min-width:1280px){.admin-media-filterbar{grid-template-columns:150px minmax(220px,1fr) 180px 145px minmax(230px,auto) minmax(145px,auto) minmax(145px,auto) minmax(145px,auto)!important}}
+
+/* v112 polish: Preview header no longer contains a second inline thumbnail. */
+.map-fullscreen-preview-inline-thumb{display:none!important}
+.map-fullscreen-preview-head{align-items:flex-start!important}
+
+/* v112 polish: locate button always belongs to the upper-right control stack when sidebar is present. */
+.map-shell.is-fullscreen .map-locate-control,.map-shell.has-poi-sidebar .map-locate-control{left:auto!important;right:16px!important;top:calc(16px + 128px)!important;z-index:1700!important;display:block!important;visibility:visible!important}
