@@ -9,9 +9,16 @@ export default function LoginPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [message, setMessage] = useState('')
+  const [busy, setBusy] = useState(false)
+
+  function getBaseUrl() {
+    if (typeof window !== 'undefined') return window.location.origin
+    return process.env.NEXT_PUBLIC_SITE_URL || ''
+  }
 
   async function login() {
     setMessage('')
+    setBusy(true)
     try {
       const { data, error } = await supabase.auth.signInWithPassword({ email, password })
       if (error) throw error
@@ -31,6 +38,28 @@ export default function LoginPage() {
       } else {
         setMessage(msg)
       }
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function sendPasswordReset() {
+    setMessage('')
+    if (!email.trim()) {
+      setMessage('Bitte zuerst deine E-Mail-Adresse eingeben.')
+      return
+    }
+    setBusy(true)
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+        redirectTo: `${getBaseUrl()}/reset-password`,
+      })
+      if (error) throw error
+      setMessage('Wenn die E-Mail registriert ist, wurde ein Link zum Zurücksetzen des Passworts gesendet.')
+    } catch (e) {
+      setMessage(e?.message || 'Passwort-Reset konnte nicht gestartet werden.')
+    } finally {
+      setBusy(false)
     }
   }
 
@@ -46,12 +75,16 @@ export default function LoginPage() {
       <div className="grid grid-2">
         <div className="card">
           <label className="label">E-Mail</label>
-          <input className="input" value={email} onChange={(e) => setEmail(e.target.value)} />
+          <input className="input" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" />
           <label className="label">Passwort</label>
-          <input className="input" type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
-          <button className="btn" type="button" onClick={login}>Login</button>
-          <button className="btn btn-secondary" type="button" onClick={logout} style={{ marginLeft: 8 }}>Logout</button>
+          <input className="input" type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" />
+          <div style={{ display:'flex', gap:8, flexWrap:'wrap', alignItems:'center' }}>
+            <button className="btn" type="button" onClick={login} disabled={busy}>Login</button>
+            <button className="btn btn-secondary" type="button" onClick={logout} disabled={busy}>Logout</button>
+            <button className="btn btn-secondary" type="button" onClick={sendPasswordReset} disabled={busy}>Passwort vergessen?</button>
+          </div>
           {message && <p>{message}</p>}
+          <p className="muted" style={{ marginTop:12 }}>Bei „Passwort vergessen?“ erhältst du per E-Mail einen Link. Danach kannst du unter „Neues Passwort setzen“ dein Passwort ändern.</p>
         </div>
         <AuthStatus />
       </div>

@@ -1654,3 +1654,162 @@ pre.code { white-space: pre-wrap; background: #f8fafc; padding: 12px; border-rad
 
 /* v112 polish: locate button always belongs to the upper-right control stack when sidebar is present. */
 .map-shell.is-fullscreen .map-locate-control,.map-shell.has-poi-sidebar .map-locate-control{left:auto!important;right:16px!important;top:calc(16px + 128px)!important;z-index:1700!important;display:block!important;visibility:visible!important}
+
+/* v113 final polish: admin media controls align as one row with identical control height. */
+.admin-media-filterbar{
+  align-items:end!important;
+  grid-auto-flow:row!important;
+}
+.admin-media-filterbar > div,
+.admin-media-filterbar > label,
+.admin-media-filterbar > button{
+  align-self:end!important;
+  min-height:42px!important;
+}
+.admin-media-filterbar .label{
+  display:block!important;
+  margin:0 0 8px!important;
+  line-height:1!important;
+}
+.admin-media-filterbar .input,
+.admin-media-filterbar .select,
+.admin-media-filterbar .btn,
+.admin-media-selectall-page{
+  height:42px!important;
+  min-height:42px!important;
+  max-height:42px!important;
+  font-size:14px!important;
+  font-weight:400!important;
+  line-height:1!important;
+  box-sizing:border-box!important;
+}
+.admin-media-filterbar .btn,
+.admin-media-selectall-page{
+  display:inline-flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  padding:0 14px!important;
+  margin:0!important;
+  white-space:nowrap!important;
+}
+.admin-media-selectall-page{
+  gap:8px!important;
+  overflow:hidden!important;
+  text-overflow:ellipsis!important;
+}
+.admin-media-selectall-page input{
+  width:14px!important;
+  height:14px!important;
+  margin:0!important;
+}
+@media (min-width:1320px){
+  .admin-media-filterbar{grid-template-columns:150px minmax(220px,1fr) 180px 145px 230px 145px 145px 145px!important;}
+}
+
+/* v113 final polish: map preview headline keeps title/meta/favorite together to reduce early wrapping. */
+.map-fullscreen-preview-head{
+  display:grid!important;
+  grid-template-columns:minmax(0,1fr) auto!important;
+  gap:10px!important;
+  align-items:start!important;
+}
+.map-fullscreen-preview-title{
+  min-width:0!important;
+  display:grid!important;
+  gap:5px!important;
+}
+.map-fullscreen-preview-title strong{
+  font-size:.98rem!important;
+  line-height:1.18!important;
+  color:#0f172a!important;
+  overflow:hidden!important;
+  display:-webkit-box!important;
+  -webkit-line-clamp:2!important;
+  -webkit-box-orient:vertical!important;
+}
+.map-shell.has-poi-sidebar .map-fullscreen-preview-head .map-sidebar-meta,
+.map-shell.is-fullscreen .map-fullscreen-preview-head .map-sidebar-meta{
+  flex-wrap:nowrap!important;
+  overflow:hidden!important;
+  white-space:nowrap!important;
+}
+.map-shell.has-poi-sidebar .map-fullscreen-preview-actions,
+.map-shell.is-fullscreen .map-fullscreen-preview-actions{
+  grid-template-columns:1fr!important;
+}
+.map-shell.has-poi-sidebar .map-sidebar-preview-favorite,
+.map-shell.is-fullscreen .map-sidebar-preview-favorite{
+  height:34px!important;
+  padding:0 10px!important;
+  border-radius:999px!important;
+  font-size:.78rem!important;
+  white-space:nowrap!important;
+}
+.map-shell.has-poi-sidebar .map-sidebar-preview-favorite span,
+.map-shell.is-fullscreen .map-sidebar-preview-favorite span{
+  display:inline!important;
+}
+@media (max-width:1220px){
+  .map-shell.has-poi-sidebar .map-sidebar-preview-favorite span,
+  .map-shell.is-fullscreen .map-sidebar-preview-favorite span{display:none!important;}
+}
+
+/* v113 final polish: locate and zoom controls share the same upper-right rounded control stack. */
+.map-shell .leaflet-control-zoom{
+  border:0!important;
+  box-shadow:0 8px 20px rgba(15,23,42,.18)!important;
+}
+.map-shell .leaflet-control-zoom a{
+  width:44px!important;
+  height:44px!important;
+  line-height:44px!important;
+  border:1px solid rgba(255,255,255,.45)!important;
+  background:rgba(15,23,42,.78)!important;
+  color:#fff!important;
+  backdrop-filter:blur(6px)!important;
+}
+.map-shell .leaflet-control-zoom-in{
+  border-radius:999px 999px 0 0!important;
+}
+.map-shell .leaflet-control-zoom-out{
+  border-radius:0 0 999px 999px!important;
+}
+.map-shell .leaflet-control-zoom a:hover,
+.map-shell .leaflet-control-zoom a:focus{
+  background:rgba(15,23,42,.92)!important;
+}
+.map-shell.is-fullscreen .leaflet-top.leaflet-left,
+.map-shell.has-poi-sidebar .leaflet-top.leaflet-left{
+  left:auto!important;
+  right:16px!important;
+  top:96px!important;
+  z-index:1650!important;
+}
+.map-shell.is-fullscreen .leaflet-control-zoom,
+.map-shell.has-poi-sidebar .leaflet-control-zoom{
+  margin:0!important;
+}
+.map-shell.is-fullscreen .map-locate-control,
+.map-shell.has-poi-sidebar .map-locate-control{
+  left:auto!important;
+  right:16px!important;
+  top:194px!important;
+  z-index:1700!important;
+  display:block!important;
+  visibility:visible!important;
+}
+.map-shell.is-fullscreen .map-locate-btn,
+.map-shell.has-poi-sidebar .map-locate-btn{
+  width:44px!important;
+  height:44px!important;
+  border-radius:999px!important;
+  background:rgba(15,23,42,.78)!important;
+  color:#fff!important;
+  border:1px solid rgba(255,255,255,.45)!important;
+}
+@media (max-width:700px){
+  .map-shell.has-poi-sidebar .map-locate-control,
+  .map-shell.is-fullscreen .map-locate-control{right:12px!important;top:84px!important;}
+  .map-shell.has-poi-sidebar .leaflet-top.leaflet-left,
+  .map-shell.is-fullscreen .leaflet-top.leaflet-left{right:12px!important;top:136px!important;}
+}

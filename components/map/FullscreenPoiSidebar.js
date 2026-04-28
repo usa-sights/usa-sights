@@ -43,6 +43,15 @@ function truncateText(value = '', max = 170) {
   return text.slice(0, max - 1).trimEnd() + '…'
 }
 
+function hasLocalAuthToken() {
+  if (typeof window === 'undefined') return false
+  try {
+    return Object.keys(window.localStorage || {}).some((key) => key.startsWith('sb-') && key.endsWith('-auth-token'))
+  } catch {
+    return false
+  }
+}
+
 const FullscreenPoiSidebar = memo(function FullscreenPoiSidebar({ markerEntries = [], activePoiId = '', onSelectPoi, compactMode = false }) {
   const pois = useMemo(() => flattenEntries(markerEntries), [markerEntries])
   const active = useMemo(() => pois.find((poi) => String(poi.id || poi.slug) === String(activePoiId)) || pois[0] || null, [pois, activePoiId])
@@ -71,6 +80,10 @@ const FullscreenPoiSidebar = memo(function FullscreenPoiSidebar({ markerEntries 
     const id = String(poi?.id || '')
     if (!id) return
     setFavoriteMessage('')
+    if (!favoriteReady && !hasLocalAuthToken()) {
+      setFavoriteMessage('Bitte einloggen, um Favoriten zu speichern.')
+      return
+    }
     const isFavorite = favoriteIds.has(id)
     const result = await authFetchJson('/api/me/favorites', {
       method: isFavorite ? 'DELETE' : 'POST',
@@ -78,7 +91,8 @@ const FullscreenPoiSidebar = memo(function FullscreenPoiSidebar({ markerEntries 
       body: JSON.stringify({ poi_id: id }),
     })
     if (result?.error) {
-      setFavoriteMessage(result.error.includes('Unauthorized') || result.error.includes('Nicht angemeldet') ? 'Bitte einloggen, um Favoriten zu speichern.' : result.error)
+      const errorText = String(result.error || '')
+      setFavoriteMessage(errorText.includes('Unauthorized') || errorText.includes('Nicht angemeldet') || errorText.includes('401') ? 'Bitte einloggen, um Favoriten zu speichern.' : errorText)
       return
     }
     setFavoriteIds((current) => {
@@ -88,7 +102,7 @@ const FullscreenPoiSidebar = memo(function FullscreenPoiSidebar({ markerEntries 
       return next
     })
     setFavoriteReady(true)
-  }, [favoriteIds])
+  }, [favoriteIds, favoriteReady])
 
   if (!pois.length) return null
 
@@ -129,20 +143,26 @@ const FullscreenPoiSidebar = memo(function FullscreenPoiSidebar({ markerEntries 
       </div>
       {active ? (
         <div className="map-fullscreen-preview">
-          <SmartImage item={active} alt={active.title || 'POI'} width={420} height={240} />
+          <SmartImage item={active} alt={active.title || 'POI'} width={420} height={220} />
           <div className="map-fullscreen-preview-body">
-            <div className="map-fullscreen-preview-head">              <span>
+            <div className="map-fullscreen-preview-head">
+              <span className="map-fullscreen-preview-title">
                 <strong>{active.title || 'POI'}</strong>
                 <PoiMeta poi={active} />
               </span>
+              <button
+                type="button"
+                className={`map-sidebar-preview-favorite${favoriteIds.has(String(active.id)) ? ' is-active' : ''}`}
+                onClick={() => toggleFavorite(active)}
+                title={favoriteIds.has(String(active.id)) ? 'Aus Favoriten entfernen' : 'Als Favorit merken'}
+              >
+                <Heart size={16} fill={favoriteIds.has(String(active.id)) ? 'currentColor' : 'none'} />
+                <span>{favoriteIds.has(String(active.id)) ? 'Gemerkter Favorit' : 'Favorit'}</span>
+              </button>
             </div>
             {active.short_description ? <p>{truncateText(active.short_description, 170)}</p> : null}
             <div className="map-fullscreen-preview-actions">
               <Link href={getPoiHref(active)} className="map-fullscreen-preview-link"><MapPinned size={16} />Details öffnen<ArrowRight size={15} /></Link>
-              <button type="button" className={`map-sidebar-preview-favorite${favoriteIds.has(String(active.id)) ? ' is-active' : ''}`} onClick={() => toggleFavorite(active)}>
-                <Heart size={16} fill={favoriteIds.has(String(active.id)) ? 'currentColor' : 'none'} />
-                {favoriteIds.has(String(active.id)) ? 'Gemerkter Favorit' : 'Favorit'}
-              </button>
             </div>
           </div>
         </div>
