@@ -110,26 +110,78 @@ async function buildFavoriteCounts(admin, poiIds = []) {
   return Object.fromEntries(Array.from(counts.entries()).map(([poiId, count]) => [poiId, { favorite_count: count }]))
 }
 
+async function getFavoriteEditorialMap(admin, poiIds = []) {
+  if (!poiIds.length) return {}
+  const { data } = await admin
+    .from('poi_editorial')
+    .select('poi_id,highlights_json,nice_to_know_json,visit_duration_text,best_time_to_visit_text,family_friendly_json,editorial_review_notes_json')
+    .in('poi_id', poiIds)
+  return Object.fromEntries((data || []).map((row) => [row.poi_id, row]))
+}
+
+async function getFavoriteExternalLinksMap(admin, poiIds = []) {
+  if (!poiIds.length) return {}
+  const { data } = await admin
+    .from('poi_external_links')
+    .select('poi_id,label,url')
+    .in('poi_id', poiIds)
+    .eq('status', 'published')
+    .order('created_at', { ascending: true })
+  const map = new Map()
+  for (const row of (data || [])) {
+    const list = map.get(row.poi_id) || []
+    list.push({ label: row.label, url: row.url })
+    map.set(row.poi_id, list)
+  }
+  return Object.fromEntries(map.entries())
+}
+
+async function getFavoriteAffiliateLinksMap(admin, poiIds = []) {
+  if (!poiIds.length) return {}
+  const [{ data: settings }, { data: providers }] = await Promise.all([
+    admin.from('poi_affiliate_settings').select('poi_id,provider_key,manual_url,cta_text,is_enabled').in('poi_id', poiIds).eq('is_enabled', true),
+    admin.from('affiliate_providers').select('provider_key,provider_name,is_global_enabled'),
+  ])
+  const providerMap = Object.fromEntries((providers || []).map((row) => [row.provider_key, row]))
+  const map = new Map()
+  for (const row of (settings || [])) {
+    const provider = providerMap[row.provider_key] || {}
+    if (provider.is_global_enabled === false || !row.manual_url) continue
+    const list = map.get(row.poi_id) || []
+    list.push({
+      provider_key: row.provider_key,
+      provider_name: provider.provider_name || row.provider_key,
+      manual_url: row.manual_url,
+      cta_text: row.cta_text || 'Angebot öffnen',
+    })
+    map.set(row.poi_id, list)
+  }
+  return Object.fromEntries(map.entries())
+}
+
 export async function GET(req) {
   const auth = await requireUserRoute(req)
   if (!auth.ok) return Response.json({ error: auth.error }, { status: auth.status })
 
   const { data: favs, error } = await auth.admin.from('favorites').select('id, poi_id').eq('user_id', auth.user.id)
   if (error) return Response.json({ error: error.message }, { status: 500 })
-  if (!favs?.length) return Response.json({ items: [] })
+  if (!favs?.length) return Response.json({ items: [] }, { headers: { 'Cache-Control': 'no-store' } })
 
   const ids = favs.map((x) => x.poi_id)
   const { data: pois, error: poiError } = await auth.admin
     .from('pois')
-    .select('id,title,slug,short_description,latitude,longitude,state,city,address,categories(name)')
+    .select('id,title,slug,short_description,description,latitude,longitude,state,city,address,opening_hours_text,price_info_text,hotels_nearby_text,website_url,categories(name)')
     .in('id', ids)
     .eq('status', 'published')
   if (poiError) return Response.json({ error: poiError.message }, { status: 500 })
 
-  const [imageMap, reviewStatsMap, favoriteStatsMap] = await Promise.all([
+  const [imageMap, reviewStatsMap, favoriteStatsMap, editorialMap, externalLinksMap, affiliateLinksMap] = await Promise.all([
     getFavoriteImageMap(auth.admin, ids),
     buildFavoriteReviewStats(auth.admin, ids),
     buildFavoriteCounts(auth.admin, ids),
+    getFavoriteEditorialMap(auth.admin, ids),
+    getFavoriteExternalLinksMap(auth.admin, ids),
+    getFavoriteAffiliateLinksMap(auth.admin, ids),
   ])
   const map = Object.fromEntries((pois || []).map((p) => {
     const image = imageMap[p.id] || {}
@@ -142,6 +194,9 @@ export async function GET(req) {
       cover_url: image.cover_url || null,
       cover_thumb_path: image.cover_thumb_path || null,
       cover_path: image.cover_path || null,
+      editorial: editorialMap[p.id] || null,
+      external_links: externalLinksMap[p.id] || [],
+      affiliate_links: affiliateLinksMap[p.id] || [],
       rating_average: stats.rating_average || null,
       rating_count: stats.rating_count || 0,
       comment_count: stats.comment_count || 0,

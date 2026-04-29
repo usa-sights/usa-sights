@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Download, X } from 'lucide-react'
+import { FileDown, X } from 'lucide-react'
 import { authFetchJson } from '@/utils/authFetch'
 import ExploreMap from '@/components/ExploreMap'
 import { getPreviewImageUrl } from '@/lib/map/poiUtils'
@@ -25,22 +25,65 @@ function cleanText(value = '') {
   return String(value || '').replace(/\s+/g, ' ').trim()
 }
 
+function cleanHtml(value = '') {
+  return cleanText(String(value || '').replace(/<[^>]*>/g, ' '))
+}
+
+function listValue(value) {
+  if (Array.isArray(value)) return value.filter(Boolean).map(cleanText).filter(Boolean)
+  return []
+}
+
+function formatAffiliateLinks(items = []) {
+  return (items || [])
+    .filter((item) => item?.manual_url)
+    .map((item) => `${item.provider_name || item.cta_text || item.provider_key || 'Angebot'}: ${item.manual_url}`)
+}
+
+function formatExternalLinks(items = []) {
+  return (items || [])
+    .filter((item) => item?.url)
+    .map((item) => `${item.label || item.url}: ${item.url}`)
+}
+
 function poiDetailLines(poi, origin) {
-  const link = poi?.slug ? `${origin}/poi/${poi.slug}` : ''
+  const detailLink = poi?.slug ? `${origin}/poi/${poi.slug}` : ''
   const ratingAverage = Number(poi?.rating_average || 0)
   const ratingCount = Number(poi?.rating_count || 0)
   const commentCount = Number(poi?.comment_count || 0)
   const favoriteCount = Number(poi?.favorite_count || poi?.favorites_count || 0)
+  const editorial = poi?.editorial || {}
+  const visitorLines = [
+    poi?.opening_hours_text ? `Öffnungszeiten: ${cleanText(poi.opening_hours_text)}` : '',
+    poi?.price_info_text ? `Preise: ${cleanText(poi.price_info_text)}` : '',
+    poi?.city ? `Stadt: ${cleanText(poi.city)}` : '',
+    poi?.hotels_nearby_text ? `Hotels in der Nähe: ${cleanText(poi.hotels_nearby_text)}` : '',
+    ...formatAffiliateLinks(poi?.affiliate_links || []),
+  ].filter(Boolean)
+  const editorialLines = [
+    ...listValue(editorial.highlights_json).map((x) => `Highlight: ${x}`),
+    ...listValue(editorial.nice_to_know_json).map((x) => `Nice to know: ${x}`),
+    editorial.visit_duration_text ? `Empfohlene Besuchsdauer: ${cleanText(editorial.visit_duration_text)}` : '',
+    editorial.best_time_to_visit_text ? `Beste Besuchszeit: ${cleanText(editorial.best_time_to_visit_text)}` : '',
+    typeof editorial?.family_friendly_json?.value === 'boolean' ? `Familienfreundlich: ${editorial.family_friendly_json.value ? 'Ja' : 'Nein'}` : '',
+    editorial?.family_friendly_json?.reason ? `Begründung Familienfreundlich: ${cleanText(editorial.family_friendly_json.reason)}` : '',
+    ...listValue(editorial.editorial_review_notes_json).map((x) => `Redaktioneller Hinweis: ${x}`),
+  ].filter(Boolean)
+  const externalLinks = formatExternalLinks(poi?.external_links || [])
+
   return [
     poi?.title ? `Titel: ${poi.title}` : '',
     poi?.category ? `Kategorie: ${poi.category}` : '',
-    [poi?.city, poi?.state].filter(Boolean).length ? `Ort: ${[poi.city, poi.state].filter(Boolean).join(', ')}` : '',
+    poi?.city ? `Ort: ${poi.city}` : '',
     ratingCount ? `Bewertung: ${ratingAverage ? ratingAverage.toFixed(1) : '0.0'} (${ratingCount} Bewertungen)` : '',
     commentCount ? `Kommentare: ${commentCount}` : '',
     favoriteCount ? `Favoriten: ${favoriteCount}` : '',
-    poi?.short_description ? `Kurzbeschreibung: ${cleanText(poi.short_description)}` : '',
-    poi?.description ? `Beschreibung: ${cleanText(poi.description)}` : '',
-    link ? `Detailseite: ${link}` : '',
+    poi?.description ? `Beschreibung: ${cleanHtml(poi.description)}` : (poi?.short_description ? `Beschreibung: ${cleanText(poi.short_description)}` : ''),
+    visitorLines.length ? `Besucherinfos:\n${visitorLines.map((x) => `- ${x}`).join('\n')}` : '',
+    editorialLines.length ? `Redaktionelle Infos:\n${editorialLines.map((x) => `- ${x}`).join('\n')}` : '',
+    poi?.website_url ? `POI-Website: ${poi.website_url}` : '',
+    externalLinks.length ? `Weitere Links:\n${externalLinks.map((x) => `- ${x}`).join('\n')}` : '',
+    detailLink ? `Detailseite: ${detailLink}` : '',
   ].filter(Boolean)
 }
 
@@ -50,9 +93,9 @@ function buildGpx(points = []) {
     const coords = validCoords(poi)
     if (!coords) return ''
     const lines = poiDetailLines(poi, origin)
-    return `  <wpt lat="${coords.lat}" lon="${coords.lng}">\n    <name>${escapeXml(poi.title || 'POI')}</name>\n    <desc>${escapeXml(lines.join('\n'))}</desc>\n    ${poi.slug ? `<link href="${escapeXml(`${origin}/poi/${poi.slug}`)}"><text>Detailseite öffnen</text></link>` : ''}\n  </wpt>`
+    return `  <wpt lat="${coords.lat}" lon="${coords.lng}">\n    <name>${escapeXml(poi.title || 'POI')}</name>\n    <desc>${escapeXml(lines.join('\n\n'))}</desc>\n    ${poi.slug ? `<link href="${escapeXml(`${origin}/poi/${poi.slug}`)}"><text>Detailseite öffnen</text></link>` : ''}\n  </wpt>`
   }).filter(Boolean).join('\n')
-  return `<?xml version="1.0" encoding="UTF-8"?>\n<gpx version="1.1" creator="USA Sights" xmlns="http://www.topografix.com/GPX/1/1">\n  <metadata><name>USA Sights Favoriten</name><desc>Favorisierte POIs mit Detailinformationen, Bewertungen, Kommentaren und Links.</desc></metadata>\n${waypoints}\n</gpx>`
+  return `<?xml version="1.0" encoding="UTF-8"?>\n<gpx version="1.1" creator="USA Sights" xmlns="http://www.topografix.com/GPX/1/1">\n  <metadata><name>USA Sights Favoriten</name><desc>Favorisierte POIs mit Detailinformationen.</desc></metadata>\n${waypoints}\n</gpx>`
 }
 
 function buildKml(points = []) {
@@ -61,9 +104,9 @@ function buildKml(points = []) {
     const coords = validCoords(poi)
     if (!coords) return ''
     const lines = poiDetailLines(poi, origin)
-    return `    <Placemark>\n      <name>${escapeXml(poi.title || 'POI')}</name>\n      <description>${escapeXml(lines.join('<br/>'))}</description>\n      <Point><coordinates>${coords.lng},${coords.lat},0</coordinates></Point>\n    </Placemark>`
+    return `    <Placemark>\n      <name>${escapeXml(poi.title || 'POI')}</name>\n      <description>${escapeXml(lines.join('\n\n'))}</description>\n      <Point><coordinates>${coords.lng},${coords.lat},0</coordinates></Point>\n    </Placemark>`
   }).filter(Boolean).join('\n')
-  return `<?xml version="1.0" encoding="UTF-8"?>\n<kml xmlns="http://www.opengis.net/kml/2.2">\n  <Document>\n    <name>USA Sights Favoriten</name>\n    <description>Favorisierte POIs mit Detailinformationen, Bewertungen, Kommentaren und Links.</description>\n${placemarks}\n  </Document>\n</kml>`
+  return `<?xml version="1.0" encoding="UTF-8"?>\n<kml xmlns="http://www.opengis.net/kml/2.2">\n  <Document>\n    <name>USA Sights Favoriten</name>\n    <description>Favorisierte POIs mit Detailinformationen.</description>\n${placemarks}\n  </Document>\n</kml>`
 }
 
 function downloadText(filename, mime, content) {
@@ -101,19 +144,19 @@ function FavoritesDownloadModal({ points, onClose }) {
           {thumb ? <img src={thumb} alt="" /> : <span />}
           <div>
             <strong>{points.length.toLocaleString('de-DE')} gespeicherte POIs</strong>
-            <span>Mit Koordinaten, Beschreibung, Bewertung, Kommentaren, Favoritenzahl und Detail-Link.</span>
+            <span>Mit Koordinaten, Beschreibung, Besucherinfos, redaktionellen Infos und Links.</span>
           </div>
         </div>
         <div className="favorites-download-options">
           <div className="favorites-download-card">
             <h3>GPX</h3>
-            <p>GPS Exchange Format mit übersichtlichen POI-Details</p>
+            <p>GPS Exchange Format</p>
             <img src={qrUrl(gpxHref)} alt="QR-Code für GPX Download" />
             <button type="button" onClick={downloadGpx}>Download</button>
           </div>
           <div className="favorites-download-card">
             <h3>KML</h3>
-            <p>Google Earth, Google Maps mit POI-Detailinfos</p>
+            <p>Google Earth, Google Maps</p>
             <img src={qrUrl(kmlHref)} alt="QR-Code für KML Download" />
             <button type="button" onClick={downloadKml}>Download</button>
           </div>
@@ -127,11 +170,13 @@ export default function FavoritesClient() {
   const [items, setItems] = useState([])
   const [message, setMessage] = useState('')
   const [downloadOpen, setDownloadOpen] = useState(false)
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     authFetchJson('/api/me/favorites')
       .then((data) => data.error ? setMessage(data.error) : setItems(data.items || []))
       .catch((e) => setMessage(e.message))
+      .finally(() => setLoading(false))
   }, [])
 
   const points = useMemo(() => items.map((item) => ({ ...item.pois, favorite_id: item.id, id: item.pois?.id || item.poi_id || item.id })), [items])
@@ -151,12 +196,12 @@ export default function FavoritesClient() {
           {message && <div className="notice">{message}</div>}
         </div>
       </div>
-      {points.length ? (
+      {loading ? (
+        <div className="container"><div className="card">Favoriten werden geladen …</div></div>
+      ) : points.length ? (
         <>
-          <div className="favorites-toolbar">
-            <button type="button" className="favorites-export-btn is-speaking" onClick={() => setDownloadOpen(true)}><Download size={17} />Favoriten als GPX/KML herunterladen</button>
-          </div>
           <div className="favorites-map-wrap">
+            <button type="button" className="favorites-map-download-btn" onClick={() => setDownloadOpen(true)} aria-label="Favoriten als GPX/KML herunterladen" title="Favoriten als GPX/KML herunterladen"><FileDown size={20} /></button>
             <ExploreMap points={points} fullScreen showTrailToggle mapContext="favorites" />
           </div>
           {downloadOpen ? <FavoritesDownloadModal points={points} onClose={() => setDownloadOpen(false)} /> : null}

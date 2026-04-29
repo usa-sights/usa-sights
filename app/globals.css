@@ -2297,3 +2297,46 @@ pre.code { white-space: pre-wrap; background: #f8fafc; padding: 12px; border-rad
   box-shadow:0 10px 24px rgba(15,23,42,.16);
 }
 .favorites-export-btn.is-speaking:hover{background:#1e293b}
+
+/* v118 favorites empty-state, download control and mobile quickfacts polish */
+.favorites-map-wrap{position:relative!important}
+.favorites-map-download-btn{
+  position:absolute;
+  top:132px;
+  right:16px;
+  z-index:1760;
+  width:42px;
+  height:42px;
+  min-width:42px;
+  min-height:42px;
+  display:grid;
+  place-items:center;
+  border-radius:999px;
+  border:1px solid rgba(203,213,225,.95);
+  background:rgba(255,255,255,.96);
+  color:#0f172a;
+  box-shadow:0 12px 28px rgba(15,23,42,.18);
+  backdrop-filter:blur(8px);
+  cursor:pointer;
+}
+.favorites-map-download-btn:hover,.favorites-map-download-btn:focus-visible{background:#f8fafc;outline:3px solid rgba(37,99,235,.28);outline-offset:2px}
+[data-map-context="favorites"] .map-corner-controls{top:78px!important;right:16px!important;left:auto!important}
+[data-map-context="favorites"] .map-toolbar{top:14px!important;right:14px!important;left:auto!important;bottom:auto!important;justify-content:flex-end!important}
+.favorites-toolbar{display:none!important}
+.favorites-download-summary span{display:block;margin-top:2px}
+@media (max-width:700px){
+  .favorites-map-download-btn{top:62px;right:12px;width:40px;height:40px;min-width:40px;min-height:40px}
+  [data-map-context="favorites"] .map-corner-controls{top:110px!important;right:12px!important;left:auto!important}
+}
+@media (max-width:700px){
+  .hero-quickfacts{grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:8px!important;align-items:start!important}
+  .hero-quickfact-column{justify-items:center!important;text-align:center!important;gap:5px!important;min-width:0!important}
+  .hero-quickfact-icon{width:24px!important;height:24px!important}
+  .hero-quickfact-value{font-size:clamp(1.15rem,7vw,1.75rem)!important;line-height:1!important;letter-spacing:-.025em!important}
+  .hero-quickfact-label{font-size:.72rem!important;white-space:normal!important;line-height:1.15!important}
+}
+@media (max-width:420px){
+  .hero-quickfacts{gap:6px!important}
+  .hero-quickfact-value{font-size:clamp(1rem,6.6vw,1.45rem)!important}
+  .hero-quickfact-label{font-size:.68rem!important}
+}
