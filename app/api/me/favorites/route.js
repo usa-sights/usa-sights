@@ -44,6 +44,72 @@ async function getFavoriteImageMap(admin, poiIds = []) {
   }))
 }
 
+async function buildFavoriteReviewStats(admin, poiIds = []) {
+  if (!poiIds.length) return {}
+
+  const { data: reviews } = await admin
+    .from('poi_reviews')
+    .select('id,poi_id,user_id,rating,review_text')
+    .in('poi_id', poiIds)
+
+  const byPoi = new Map()
+  const reviewIds = []
+  for (const review of (reviews || [])) {
+    reviewIds.push(review.id)
+    const current = byPoi.get(review.poi_id) || { ratingSum: 0, ratingCount: 0, commentCount: 0, commentUserIds: new Set(), reviewIds: [] }
+    const rating = Number(review.rating || 0)
+    if (rating > 0) {
+      current.ratingSum += rating
+      current.ratingCount += 1
+    }
+    if (String(review.review_text || '').trim()) {
+      current.commentCount += 1
+      if (review.user_id) current.commentUserIds.add(review.user_id)
+    }
+    current.reviewIds.push(review.id)
+    byPoi.set(review.poi_id, current)
+  }
+
+  if (reviewIds.length) {
+    const { data: replies } = await admin
+      .from('poi_review_replies')
+      .select('review_id,user_id')
+      .in('review_id', reviewIds)
+
+    const reviewToPoi = new Map()
+    for (const [poiId, stats] of byPoi.entries()) {
+      for (const reviewId of stats.reviewIds) reviewToPoi.set(reviewId, poiId)
+    }
+    for (const reply of (replies || [])) {
+      const poiId = reviewToPoi.get(reply.review_id)
+      if (!poiId) continue
+      const current = byPoi.get(poiId)
+      if (current) {
+        current.commentCount += 1
+        if (reply.user_id) current.commentUserIds.add(reply.user_id)
+      }
+    }
+  }
+
+  return Object.fromEntries(Array.from(byPoi.entries()).map(([poiId, stats]) => [poiId, {
+    rating_average: stats.ratingCount ? stats.ratingSum / stats.ratingCount : null,
+    rating_count: stats.ratingCount,
+    comment_count: stats.commentCount,
+    comment_user_count: stats.commentUserIds ? stats.commentUserIds.size : 0,
+  }]))
+}
+
+async function buildFavoriteCounts(admin, poiIds = []) {
+  if (!poiIds.length) return {}
+  const { data } = await admin
+    .from('favorites')
+    .select('poi_id')
+    .in('poi_id', poiIds)
+  const counts = new Map()
+  for (const row of (data || [])) counts.set(row.poi_id, (counts.get(row.poi_id) || 0) + 1)
+  return Object.fromEntries(Array.from(counts.entries()).map(([poiId, count]) => [poiId, { favorite_count: count }]))
+}
+
 export async function GET(req) {
   const auth = await requireUserRoute(req)
   if (!auth.ok) return Response.json({ error: auth.error }, { status: auth.status })
@@ -60,9 +126,14 @@ export async function GET(req) {
     .eq('status', 'published')
   if (poiError) return Response.json({ error: poiError.message }, { status: 500 })
 
-  const imageMap = await getFavoriteImageMap(auth.admin, ids)
+  const [imageMap, reviewStatsMap, favoriteStatsMap] = await Promise.all([
+    getFavoriteImageMap(auth.admin, ids),
+    buildFavoriteReviewStats(auth.admin, ids),
+    buildFavoriteCounts(auth.admin, ids),
+  ])
   const map = Object.fromEntries((pois || []).map((p) => {
     const image = imageMap[p.id] || {}
+    const stats = { ...(reviewStatsMap[p.id] || {}), ...(favoriteStatsMap[p.id] || {}) }
     return [p.id, {
       ...p,
       category: p.categories?.name || '',
@@ -71,6 +142,11 @@ export async function GET(req) {
       cover_url: image.cover_url || null,
       cover_thumb_path: image.cover_thumb_path || null,
       cover_path: image.cover_path || null,
+      rating_average: stats.rating_average || null,
+      rating_count: stats.rating_count || 0,
+      comment_count: stats.comment_count || 0,
+      comment_user_count: stats.comment_user_count || 0,
+      favorite_count: stats.favorite_count || 0,
     }]
   }))
   const items = favs.map((f) => ({ id: f.id, poi_id: f.poi_id, pois: map[f.poi_id] || null })).filter((x) => x.pois)
