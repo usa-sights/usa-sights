@@ -2,8 +2,9 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { MapContainer, Marker, Popup, TileLayer, useMap, useMapEvents } from 'react-leaflet'
+import { LocateFixed, Minus, Plus } from 'lucide-react'
 import 'leaflet/dist/leaflet.css'
-import MapControls, { LocateUserButton, TILE_PRESETS } from '@/components/map/MapControls'
+import MapControls, { TILE_PRESETS } from '@/components/map/MapControls'
 import MapMarker from '@/components/map/MapMarker'
 import FullscreenPoiSidebar from '@/components/map/FullscreenPoiSidebar'
 import { iconForCategory } from '@/components/map/mapIcons'
@@ -59,9 +60,12 @@ function ViewportTracker({ onViewportChange, onZoomChange, onVisibleBoundsChange
   return null
 }
 
-function LocateUserControl() {
+function CornerMapControls() {
   const map = useMap()
   const [status, setStatus] = useState('idle')
+
+  function zoomIn() { map.zoomIn() }
+  function zoomOut() { map.zoomOut() }
 
   function locateUser() {
     if (!navigator?.geolocation) {
@@ -84,7 +88,15 @@ function LocateUserControl() {
     )
   }
 
-  return <div className="map-locate-control leaflet-control"><LocateUserButton onLocate={locateUser} status={status} /></div>
+  return (
+    <div className="map-corner-controls" aria-label="Kartensteuerung">
+      <button type="button" className="map-corner-btn" onClick={zoomIn} aria-label="Vergrößern" title="Vergrößern"><Plus size={18} /></button>
+      <button type="button" className="map-corner-btn" onClick={zoomOut} aria-label="Verkleinern" title="Verkleinern"><Minus size={18} /></button>
+      <button type="button" className={`map-corner-btn map-locate-btn${status === 'loading' ? ' is-loading' : ''}`} onClick={locateUser} aria-label="Aktuellen Standort anzeigen" title="Aktuellen Standort anzeigen" disabled={status === 'loading'}>
+        <LocateFixed size={18} />
+      </button>
+    </div>
+  )
 }
 
 function MapResizer({ watchKey }) {
@@ -166,13 +178,13 @@ export default function MapView({
 
   return (
     <div className={shellClassName} data-map-context={mapContext} style={{ position: isFullscreen ? 'fixed' : 'relative', height: effectiveHeight, width: '100%', minHeight: 420 }}>
-      <MapControls mapStyle={mapStyle} setMapStyle={setMapStyle} showTrailToggle={showTrailToggle} fullScreen={fullScreen} isFullscreen={isFullscreen} setIsFullscreen={setIsFullscreen} />
+      <MapControls mapStyle={mapStyle} setMapStyle={setMapStyle} fullScreen={fullScreen} isFullscreen={isFullscreen} setIsFullscreen={setIsFullscreen} />
       {showPoiSidebar ? <FullscreenPoiSidebar markerEntries={markerEntries} activePoiId={activePoiId} onSelectPoi={setActivePoiId} compactMode={!isFullscreen} /> : null}
-      <MapContainer center={initialCenter} zoom={4} scrollWheelZoom style={{ height: effectiveHeight, width: '100%', minHeight: 420 }}>
+      <MapContainer center={initialCenter} zoom={4} zoomControl={false} scrollWheelZoom style={{ height: effectiveHeight, width: '100%', minHeight: 420 }}>
         <TileLayer attribution={tile.attribution} url={tile.url} />
         {(tile.overlays || []).map((overlay) => <TileLayer key={overlay.url} attribution={overlay.attribution} url={overlay.url} zIndex={overlay.zIndex || 2} />)}
         <ViewportTracker onViewportChange={onViewportChange} onZoomChange={onZoomChange} onVisibleBoundsChange={onVisibleBoundsChange} />
-        <LocateUserControl />
+        <CornerMapControls />
         <MapResizer watchKey={`--`} />
         <ActivePoiFocus markerEntries={markerEntries} activePoiId={activePoiId} />
         {onPick ? <PickHandler onPick={onPick} /> : null}
