@@ -1943,3 +1943,107 @@ pre.code { white-space: pre-wrap; background: #f8fafc; padding: 12px; border-rad
   .map-shell.has-poi-sidebar .map-locate-control,
   .map-shell.is-fullscreen .map-locate-control{right:12px!important;top:188px!important;}
 }
+
+/* v115 final fixes: fullscreen POI list matches embedded compact list. */
+.map-shell.is-fullscreen .map-fullscreen-poi-list,
+.map-shell.has-poi-sidebar .map-fullscreen-poi-list{
+  gap:0!important;
+  padding-right:0!important;
+}
+.map-shell.is-fullscreen .map-fullscreen-poi-item,
+.map-shell.has-poi-sidebar .map-fullscreen-poi-item{
+  position:relative!important;
+  width:100%!important;
+  height:92px!important;
+  min-height:92px!important;
+  max-height:92px!important;
+  display:grid!important;
+  grid-template-columns:minmax(0,1fr) 36px!important;
+  gap:8px!important;
+  align-items:start!important;
+  border:0!important;
+  border-bottom:1px solid #e2e8f0!important;
+  border-radius:0!important;
+  background:#fff!important;
+  padding:10px 10px 10px 12px!important;
+  box-shadow:none!important;
+  overflow:hidden!important;
+  text-align:left!important;
+}
+.map-shell.is-fullscreen .map-fullscreen-poi-item:hover,
+.map-shell.is-fullscreen .map-fullscreen-poi-item.is-active,
+.map-shell.has-poi-sidebar .map-fullscreen-poi-item:hover,
+.map-shell.has-poi-sidebar .map-fullscreen-poi-item.is-active{
+  background:#ecfdf5!important;
+  border-bottom-color:#bbf7d0!important;
+}
+.map-shell.is-fullscreen .map-fullscreen-poi-main,
+.map-shell.has-poi-sidebar .map-fullscreen-poi-main{
+  display:grid!important;
+  grid-template-columns:84px minmax(0,1fr)!important;
+  gap:11px!important;
+  align-items:start!important;
+  min-width:0!important;
+  padding:0!important;
+  border:0!important;
+  background:transparent!important;
+  text-align:left!important;
+}
+.map-shell.is-fullscreen .map-fullscreen-poi-thumb,
+.map-shell.has-poi-sidebar .map-fullscreen-poi-thumb{
+  width:84px!important;
+  height:66px!important;
+  border-radius:0!important;
+  flex:0 0 auto!important;
+  overflow:hidden!important;
+  background:#e2e8f0!important;
+}
+.map-shell.is-fullscreen .map-fullscreen-poi-thumb img,
+.map-shell.has-poi-sidebar .map-fullscreen-poi-thumb img{
+  width:100%!important;
+  height:100%!important;
+  object-fit:cover!important;
+  display:block!important;
+}
+.map-shell.is-fullscreen .map-fullscreen-poi-copy,
+.map-shell.has-poi-sidebar .map-fullscreen-poi-copy{
+  align-self:start!important;
+  min-width:0!important;
+  display:grid!important;
+  gap:3px!important;
+  padding-top:0!important;
+}
+.map-shell.is-fullscreen .map-fullscreen-poi-copy strong,
+.map-shell.has-poi-sidebar .map-fullscreen-poi-copy strong{
+  line-height:1.15!important;
+  -webkit-line-clamp:2!important;
+  display:-webkit-box!important;
+  -webkit-box-orient:vertical!important;
+  overflow:hidden!important;
+}
+.map-shell.is-fullscreen .map-sidebar-favorite-btn,
+.map-shell.has-poi-sidebar .map-sidebar-favorite-btn{
+  align-self:start!important;
+  margin-top:0!important;
+  width:32px!important;
+  height:32px!important;
+}
+
+/* v115 final fixes: media action buttons align with the input row, not the label row. */
+.admin-media-filterbar > button.btn{
+  align-self:start!important;
+  margin-top:24px!important;
+  height:42px!important;
+  min-height:42px!important;
+  max-height:42px!important;
+  font-weight:400!important;
+  line-height:1!important;
+}
+.admin-media-filterbar > .admin-media-selectall-page{
+  align-self:start!important;
+  margin-top:24px!important;
+}
+@media (max-width:1279px){
+  .admin-media-filterbar > button.btn,
+  .admin-media-filterbar > .admin-media-selectall-page{margin-top:0!important;}
+}
