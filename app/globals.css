@@ -2412,3 +2412,96 @@ pre.code { white-space: pre-wrap; background: #f8fafc; padding: 12px; border-rad
 .admin-editor-container .content-thumb-fallback{width:62px!important;height:62px!important;min-width:62px!important;min-height:62px!important;flex:0 0 62px!important;display:grid!important;place-items:center!important;border-radius:10px!important;background:#f1f5f9!important;color:#0f172a!important;padding:0!important;overflow:visible!important}
 .admin-editor-container .content-thumb-fallback svg,.admin-editor-container .dashboard-status-item svg{width:24px!important;height:24px!important;min-width:24px!important;min-height:24px!important;flex:0 0 auto!important;overflow:visible!important;stroke-width:2!important}
 .admin-editor-container .dashboard-list-meta{overflow:visible!important;flex:0 0 auto!important;min-width:max-content!important;white-space:nowrap!important}
+
+/* v121 final favorites download visibility and dashboard square media polish */
+.favorites-map-wrap{position:relative!important;overflow:visible!important;isolation:isolate!important}
+.favorites-map-wrap .favorites-map-download-btn{
+  position:absolute!important;
+  top:236px!important;
+  right:14px!important;
+  bottom:auto!important;
+  left:auto!important;
+  z-index:10050!important;
+  pointer-events:auto!important;
+  width:42px!important;
+  height:42px!important;
+  min-width:42px!important;
+  min-height:42px!important;
+  border-radius:999px!important;
+  display:grid!important;
+  place-items:center!important;
+  background:rgba(15,23,42,.92)!important;
+  color:#fff!important;
+  border:1px solid rgba(255,255,255,.85)!important;
+  box-shadow:0 12px 28px rgba(15,23,42,.28)!important;
+}
+.favorites-map-wrap .favorites-map-download-btn:hover,.favorites-map-wrap .favorites-map-download-btn:focus-visible{background:#0f172a!important;outline:3px solid rgba(37,99,235,.32)!important;outline-offset:2px!important}
+.favorites-map-wrap .favorites-map-download-btn svg{width:20px!important;height:20px!important;display:block!important;overflow:visible!important;stroke-width:2.25!important}
+@media (max-width:700px){.favorites-map-wrap .favorites-map-download-btn{top:236px!important;right:14px!important;width:42px!important;height:42px!important}}
+
+.admin-editor-container .dashboard-status-list,
+.admin-editor-container .recent-activity-list,
+.admin-dashboard .dashboard-status-list,
+.recent-activity-card .recent-activity-list{overflow:visible!important}
+.admin-editor-container .dashboard-status-item,
+.admin-dashboard .dashboard-status-item,
+.recent-activity-card .dashboard-status-item{
+  overflow:visible!important;
+  align-items:center!important;
+  min-height:76px!important;
+}
+.admin-editor-container .dashboard-status-item .content-thumb,
+.admin-editor-container img.content-thumb,
+.admin-dashboard .dashboard-status-item .content-thumb,
+.recent-activity-card .dashboard-status-item .content-thumb{
+  width:60px!important;
+  height:60px!important;
+  min-width:60px!important;
+  min-height:60px!important;
+  flex:0 0 60px!important;
+  aspect-ratio:1/1!important;
+  object-fit:cover!important;
+  object-position:center!important;
+  display:block!important;
+  border-radius:10px!important;
+  background:#e2e8f0!important;
+  border:1px solid #e2e8f0!important;
+  padding:0!important;
+  overflow:hidden!important;
+}
+.admin-editor-container .content-thumb-fallback,
+.admin-dashboard .content-thumb-fallback,
+.recent-activity-card .content-thumb-fallback{
+  width:60px!important;
+  height:60px!important;
+  min-width:60px!important;
+  min-height:60px!important;
+  flex:0 0 60px!important;
+  display:grid!important;
+  place-items:center!important;
+  border-radius:10px!important;
+  background:#f1f5f9!important;
+  color:#0f172a!important;
+  padding:0!important;
+  line-height:1!important;
+  text-align:center!important;
+  overflow:hidden!important;
+}
+.admin-editor-container .content-thumb-fallback svg,
+.admin-dashboard .content-thumb-fallback svg,
+.recent-activity-card .content-thumb-fallback svg{
+  width:24px!important;
+  height:24px!important;
+  min-width:24px!important;
+  min-height:24px!important;
+  display:block!important;
+  margin:auto!important;
+  overflow:visible!important;
+  stroke-width:2!important;
+}
+.admin-editor-container .dashboard-status-item svg:not(.content-thumb-fallback svg),
+.admin-dashboard .dashboard-status-item svg:not(.content-thumb-fallback svg),
+.recent-activity-card .dashboard-status-item svg:not(.content-thumb-fallback svg){overflow:visible!important;flex:0 0 auto!important}
+.admin-editor-container .dashboard-list-meta,
+.admin-dashboard .dashboard-list-meta,
+.recent-activity-card .dashboard-list-meta{overflow:visible!important;flex:0 0 auto!important;min-width:max-content!important;white-space:nowrap!important}

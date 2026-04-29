@@ -61,10 +61,11 @@ function formatDateTime(value) {
 }
 
 async function attachPoiThumbs(admin, items) {
-  const poiIds = Array.from(new Set((items || []).map((item) => item.poi_id || item.key).filter(Boolean)))
-  if (!poiIds.length) return items
+  const input = items || []
+  const poiIds = Array.from(new Set(input.map((item) => item.poi_id || item.key).filter(Boolean)))
+  if (!poiIds.length && !input.some((item) => item.path || item.thumb_path)) return input
 
-  const imageRows = await safeData(
+  const imageRows = poiIds.length ? await safeData(
     admin
       .from('poi_images')
       .select('poi_id,path,is_cover,is_gallery_pick,created_at,status')
@@ -73,25 +74,28 @@ async function attachPoiThumbs(admin, items) {
       .order('is_cover', { ascending: false })
       .order('is_gallery_pick', { ascending: false })
       .order('created_at', { ascending: false })
-  )
+  ) : []
 
   const firstByPoi = new Map()
   for (const row of imageRows) {
     if (!firstByPoi.has(row.poi_id)) firstByPoi.set(row.poi_id, row)
   }
 
-  const thumbPaths = Array.from(new Set(Array.from(firstByPoi.values()).flatMap((row) => [deriveThumbPath(row.path), row.path]).filter(Boolean)))
+  const ownPaths = input.flatMap((item) => [item.thumb_path, item.path ? deriveThumbPath(item.path) : null, item.path]).filter(Boolean)
+  const coverPaths = Array.from(firstByPoi.values()).flatMap((row) => [deriveThumbPath(row.path), row.path]).filter(Boolean)
+  const thumbPaths = Array.from(new Set([...ownPaths, ...coverPaths]))
   let signedMap = {}
   if (thumbPaths.length) {
     const signed = await admin.storage.from('poi-images').createSignedUrls(thumbPaths, 3600)
     signedMap = Object.fromEntries((signed.data || []).map((item, index) => [thumbPaths[index], item?.signedUrl || null]))
   }
 
-  return (items || []).map((item) => {
+  return input.map((item) => {
     const key = item.poi_id || item.key
     const image = firstByPoi.get(key)
-    const thumbUrl = image ? (signedMap[deriveThumbPath(image.path)] || signedMap[image.path] || null) : null
-    return { ...item, thumb_url: thumbUrl }
+    const ownThumb = item.thumb_url || (item.thumb_path ? signedMap[item.thumb_path] : null) || (item.path ? (signedMap[deriveThumbPath(item.path)] || signedMap[item.path]) : null)
+    const coverThumb = image ? (signedMap[deriveThumbPath(image.path)] || signedMap[image.path] || null) : null
+    return { ...item, thumb_url: ownThumb || coverThumb || null }
   })
 }
 
@@ -217,6 +221,7 @@ export async function GET(req) {
 
   const recentImageEntries = await attachPoiThumbs(admin, recentImages.map((item) => ({
     poi_id: item.poi_id,
+    path: item.path,
     type: 'Bild',
     icon: 'image',
     created_at: item.created_at,
