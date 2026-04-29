@@ -2400,3 +2400,15 @@ pre.code { white-space: pre-wrap; background: #f8fafc; padding: 12px; border-rad
 .admin-editor-container .content-thumb-fallback{display:grid!important;place-items:center!important;padding:0!important;color:#0f172a!important}
 .admin-editor-container .content-thumb-fallback svg{width:22px!important;height:22px!important;overflow:visible!important;stroke-width:2!important}
 .admin-editor-container .dashboard-list-meta{flex:0 0 auto!important;min-width:max-content!important;white-space:nowrap!important;overflow:visible!important}
+
+/* v120 final favorites download placement and admin dashboard media/icon visibility */
+.favorites-map-wrap{position:relative!important;isolation:isolate!important}
+.favorites-map-wrap .favorites-map-download-btn{position:absolute!important;top:auto!important;right:18px!important;bottom:22px!important;left:auto!important;z-index:5000!important;pointer-events:auto!important;width:44px!important;height:44px!important;min-width:44px!important;min-height:44px!important}
+.favorites-map-wrap .favorites-map-download-btn svg{width:20px!important;height:20px!important;display:block!important;overflow:visible!important}
+@media (max-width:700px){.favorites-map-wrap .favorites-map-download-btn{right:14px!important;bottom:16px!important;width:42px!important;height:42px!important;min-width:42px!important;min-height:42px!important}}
+.admin-editor-container .dashboard-status-list,.admin-editor-container .recent-activity-list{overflow:visible!important}
+.admin-editor-container .dashboard-status-item{overflow:visible!important;min-height:78px!important;align-items:center!important}
+.admin-editor-container .dashboard-status-item .content-thumb,.admin-editor-container img.content-thumb{width:62px!important;height:62px!important;min-width:62px!important;min-height:62px!important;flex:0 0 62px!important;aspect-ratio:1/1!important;object-fit:cover!important;object-position:center!important;border-radius:10px!important;background:#e2e8f0!important;border:1px solid #e2e8f0!important;padding:0!important;overflow:hidden!important;display:block!important}
+.admin-editor-container .content-thumb-fallback{width:62px!important;height:62px!important;min-width:62px!important;min-height:62px!important;flex:0 0 62px!important;display:grid!important;place-items:center!important;border-radius:10px!important;background:#f1f5f9!important;color:#0f172a!important;padding:0!important;overflow:visible!important}
+.admin-editor-container .content-thumb-fallback svg,.admin-editor-container .dashboard-status-item svg{width:24px!important;height:24px!important;min-width:24px!important;min-height:24px!important;flex:0 0 auto!important;overflow:visible!important;stroke-width:2!important}
+.admin-editor-container .dashboard-list-meta{overflow:visible!important;flex:0 0 auto!important;min-width:max-content!important;white-space:nowrap!important}

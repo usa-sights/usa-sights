@@ -189,8 +189,8 @@ export default function FavoritesClient() {
       ) : points.length ? (
         <>
           <div className="favorites-map-wrap">
-            <button type="button" className="favorites-map-download-btn" onClick={() => setDownloadOpen(true)} aria-label="Favoriten als GPX/KML herunterladen" title="Favoriten als GPX/KML herunterladen"><FileDown size={20} /></button>
             <ExploreMap points={points} fullScreen showTrailToggle mapContext="favorites" />
+            <button type="button" className="favorites-map-download-btn" onClick={() => setDownloadOpen(true)} aria-label="Favoriten als GPX/KML herunterladen" title="Favoriten als GPX/KML herunterladen"><FileDown size={20} /></button>
           </div>
           {downloadOpen ? <FavoritesDownloadModal points={points} onClose={() => setDownloadOpen(false)} /> : null}
         </>
