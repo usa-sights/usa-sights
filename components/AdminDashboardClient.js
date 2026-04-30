@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { authFetch, authFetchJson } from '@/utils/authFetch'
+import { authFetch } from '@/utils/authFetch'
 import { Activity, Heart, Image as ImageIcon, Link2, MapPinned, MessageCircle, Reply, ShieldAlert, Star, Users } from 'lucide-react'
 
 function MetricCard({ icon: Icon, title, total, totalInfo, items = [] }) {
@@ -95,8 +95,8 @@ export default function AdminDashboardClient() {
     async function load() {
       try {
         const [dashboardRes, settingsRes] = await Promise.all([
-          authFetchJson('/api/admin/dashboard', { cache: 'no-store' }),
-          authFetchJson('/api/admin/app-settings', { cache: 'no-store' }).catch(() => ({ publicRankingVisible: false, missingTable: true })),
+          authFetch('/api/admin/dashboard', { cache: 'no-store' }).then((r) => r.json()),
+          authFetch('/api/admin/app-settings', { cache: 'no-store' }).then((r) => r.json()).catch(() => ({ publicRankingVisible: false, missingTable: true })),
         ])
         if (!active) return
         if (dashboardRes.error) {
@@ -143,11 +143,12 @@ export default function AdminDashboardClient() {
   async function togglePublicRanking() {
     setSettingsSaving(true)
     try {
-      const next = await authFetchJson('/api/admin/app-settings', {
+      const response = await authFetch('/api/admin/app-settings', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ publicRankingVisible: !publicRankingVisible }),
       })
+      const next = await response.json()
       if (next.error) throw new Error(next.error)
       setPublicRankingVisible(next.publicRankingVisible === true)
       window.dispatchEvent(new Event('app-settings-changed'))

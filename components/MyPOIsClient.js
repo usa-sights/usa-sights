@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { createBrowserSupabaseClient } from '@/utils/supabase/client'
 import POIForm from '@/components/POIForm'
 import UserPOIImageUploader from '@/components/UserPOIImageUploader'
-import { authFetchJson } from '@/utils/authFetch'
+import { authFetch, authFetchJson } from '@/utils/authFetch'
 
 export default function MyPOIsClient() {
   const supabase = useMemo(() => createBrowserSupabaseClient(), [])
@@ -16,7 +16,8 @@ export default function MyPOIsClient() {
   const [userId, setUserId] = useState(null)
 
   async function load() {
-    const d = await authFetchJson('/api/me/pois')
+    const r = await authFetch('/api/me/pois')
+    const d = await r.json()
     if (d.error) setMessage(d.error)
     setItems(d.items || [])
   }

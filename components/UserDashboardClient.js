@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { authFetchJson } from '@/utils/authFetch'
+import { authFetch } from '@/utils/authFetch'
 import { Heart, MessageCircle, Reply, Image as ImageIcon, Link as LinkIcon, PencilLine, Clock3, MapPinned, Star, MessageSquareQuote } from 'lucide-react'
 
 function formatDateTime(value) {
@@ -60,7 +60,8 @@ export default function UserDashboardClient() {
 
   useEffect(() => {
     ;(async () => {
-      const next = await authFetchJson('/api/me/dashboard')
+      const r = await authFetch('/api/me/dashboard')
+      const next = await r.json()
       if (next.error) return setError(next.error)
       setData(next)
     })().catch((e) => setError(e.message))

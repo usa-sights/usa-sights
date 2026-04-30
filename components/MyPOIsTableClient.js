@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { Search, ArrowUpDown, Filter } from 'lucide-react'
-import { authFetchJson } from '@/utils/authFetch'
+import { authFetch } from '@/utils/authFetch'
 
 const PAGE_SIZE = 25
 
@@ -29,7 +29,8 @@ export default function MyPOIsTableClient() {
   useEffect(() => {
     ;(async () => {
       const params = new URLSearchParams({ limit: String(PAGE_SIZE), offset: String((page - 1) * PAGE_SIZE) })
-      const d = await authFetchJson(`/api/me/pois?${params.toString()}`)
+      const r = await authFetch(`/api/me/pois?${params.toString()}`)
+      const d = await r.json()
       if (d.error) return setMessage(d.error)
       setItems(d.items || [])
       setTotal(d.total || 0)

@@ -1,13 +1,14 @@
 'use client'
 import { useEffect, useState } from 'react'
-import { authFetchJson } from '@/utils/authFetch'
+import { authFetch } from '@/utils/authFetch'
 
 export default function AdminChangeRequestsClient() {
   const [items, setItems] = useState([])
   const [message, setMessage] = useState('')
 
   async function load() {
-    const data = await authFetchJson('/api/admin/change-requests')
+    const r = await authFetch('/api/admin/change-requests')
+    const data = await r.json()
     if (data.error) return setMessage(data.error)
     setItems(data.items || [])
   }
@@ -15,11 +16,12 @@ export default function AdminChangeRequestsClient() {
   useEffect(() => { load() }, [])
 
   async function setStatus(id, status) {
-    const data = await authFetchJson('/api/admin/change-requests', {
+    const r = await authFetch('/api/admin/change-requests', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ id, status })
     })
+    const data = await r.json()
     setMessage(data.error || 'Status geändert')
     load()
   }

@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { slugify } from '@/lib/utils'
 import Link from 'next/link'
-import { authFetchJson } from '@/utils/authFetch'
+import { authFetch } from '@/utils/authFetch'
 
 export default function AdminCategoriesClient() {
   const [items, setItems] = useState([])
@@ -14,13 +14,15 @@ export default function AdminCategoriesClient() {
   const detailRef = useRef(null)
 
   async function load() {
-    const data = await authFetchJson('/api/admin/categories')
+    const r = await authFetch('/api/admin/categories')
+    const data = await r.json()
     if (data.error) return setMessage(data.error)
     setItems(data.items || [])
   }
 
   async function loadPois(categoryId) {
-    const d = await authFetchJson(`/api/admin/pending?category_id=${categoryId}&all=1`)
+    const r = await authFetch(`/api/admin/pending?category_id=${categoryId}&all=1`)
+    const d = await r.json()
     if (d.error) return setMessage(d.error)
     setSelectedPois(d.items || [])
   }
@@ -28,28 +30,31 @@ export default function AdminCategoriesClient() {
   useEffect(() => { load() }, [])
 
   async function createCategory() {
-    const data = await authFetchJson('/api/admin/categories', {
+    const r = await authFetch('/api/admin/categories', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name: form.name, slug: slugify(form.name), description: form.description, sort_order: Number(form.sort_order) || 0, is_active: form.is_active })
     })
+    const data = await r.json()
     setMessage(data.error || 'Kategorie erstellt')
     setForm({ name: '', description: '', sort_order: 0, is_active: true })
     load()
   }
 
   async function saveSelected() {
-    const data = await authFetchJson('/api/admin/categories', {
+    const r = await authFetch('/api/admin/categories', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ ...selected, slug: slugify(selected.name), sort_order: Number(selected.sort_order) || 0 })
     })
+    const data = await r.json()
     setMessage(data.error || 'Kategorie gespeichert')
     load()
   }
 
   async function removeSelected() {
-    const data = await authFetchJson(`/api/admin/categories?id=${selected.id}`, { method: 'DELETE' })
+    const r = await authFetch(`/api/admin/categories?id=${selected.id}`, { method: 'DELETE' })
+    const data = await r.json()
     setMessage(data.error || 'Kategorie gelöscht')
     setSelected(null)
     setSelectedPois([])
