@@ -142,18 +142,31 @@ export default function AdminDashboardClient() {
   if (!data) return <main className="container"><p>Lädt ...</p></main>
 
   async function togglePublicRanking() {
+    if (settingsSaving) return
+    const desiredValue = !publicRankingVisible
     setSettingsSaving(true)
+    setSettingsError('')
+    setPublicRankingVisible(desiredValue)
+
     try {
       const next = await authFetchJson('/api/admin/app-settings', {
-        method: 'PUT',
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ publicRankingVisible: !publicRankingVisible }),
+        body: JSON.stringify({ publicRankingVisible: desiredValue }),
+        cache: 'no-store',
       })
       if (next.error) throw new Error(next.error)
-      setPublicRankingVisible(next.publicRankingVisible === true)
-      setSettingsError('')
+
+      const persistedValue = next.publicRankingVisible === true
+      setPublicRankingVisible(persistedValue)
+      if (persistedValue !== desiredValue) {
+        throw new Error('Die Einstellung wurde nicht dauerhaft gespeichert. Bitte app_settings in Supabase prüfen.')
+      }
+
       window.dispatchEvent(new Event('app-settings-changed'))
+      window.dispatchEvent(new Event('app-data-changed'))
     } catch (e) {
+      setPublicRankingVisible(!desiredValue)
       setSettingsError(e.message || 'Einstellung konnte nicht gespeichert werden.')
     } finally {
       setSettingsSaving(false)
@@ -175,7 +188,7 @@ export default function AdminDashboardClient() {
             {settingsError ? <p className="error-box" style={{ margin:'8px 0 0', padding:'8px 10px' }}>{settingsError}</p> : null}
           </div>
           <button type="button" className={`btn ${publicRankingVisible ? '' : 'btn-secondary'}`} onClick={togglePublicRanking} disabled={settingsSaving}>
-            {publicRankingVisible ? 'Ranking ist sichtbar' : 'Ranking freischalten'}
+            {settingsSaving ? 'Speichert ...' : publicRankingVisible ? 'Ranking ist sichtbar' : 'Ranking freischalten'}
           </button>
         </div>
       </div>
