@@ -88,7 +88,6 @@ export default function AdminDashboardClient() {
   const [publicRankingVisible, setPublicRankingVisible] = useState(false)
   const [settingsMissing, setSettingsMissing] = useState(false)
   const [settingsSaving, setSettingsSaving] = useState(false)
-  const [settingsError, setSettingsError] = useState('')
 
   useEffect(() => {
     let active = true
@@ -142,32 +141,18 @@ export default function AdminDashboardClient() {
   if (!data) return <main className="container"><p>Lädt ...</p></main>
 
   async function togglePublicRanking() {
-    if (settingsSaving) return
-    const desiredValue = !publicRankingVisible
     setSettingsSaving(true)
-    setSettingsError('')
-    setPublicRankingVisible(desiredValue)
-
     try {
       const next = await authFetchJson('/api/admin/app-settings', {
-        method: 'POST',
+        method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ publicRankingVisible: desiredValue }),
-        cache: 'no-store',
+        body: JSON.stringify({ publicRankingVisible: !publicRankingVisible }),
       })
       if (next.error) throw new Error(next.error)
-
-      const persistedValue = next.publicRankingVisible === true
-      setPublicRankingVisible(persistedValue)
-      if (persistedValue !== desiredValue) {
-        throw new Error('Die Einstellung wurde nicht dauerhaft gespeichert. Bitte app_settings in Supabase prüfen.')
-      }
-
+      setPublicRankingVisible(next.publicRankingVisible === true)
       window.dispatchEvent(new Event('app-settings-changed'))
-      window.dispatchEvent(new Event('app-data-changed'))
     } catch (e) {
-      setPublicRankingVisible(!desiredValue)
-      setSettingsError(e.message || 'Einstellung konnte nicht gespeichert werden.')
+      setError(e.message)
     } finally {
       setSettingsSaving(false)
     }
@@ -185,10 +170,9 @@ export default function AdminDashboardClient() {
             <h2 style={{ margin:'0 0 4px' }}>Öffentliches Ranking</h2>
             <p className="muted" style={{ margin:0 }}>Das Ranking-Menü wird nur angezeigt, wenn du es hier freischaltest.</p>
             {settingsMissing ? <p className="muted" style={{ margin:'6px 0 0' }}>Hinweis: Für diese Einstellung wird eine Tabelle <code>app_settings</code> benötigt.</p> : null}
-            {settingsError ? <p className="error-box" style={{ margin:'8px 0 0', padding:'8px 10px' }}>{settingsError}</p> : null}
           </div>
           <button type="button" className={`btn ${publicRankingVisible ? '' : 'btn-secondary'}`} onClick={togglePublicRanking} disabled={settingsSaving}>
-            {settingsSaving ? 'Speichert ...' : publicRankingVisible ? 'Ranking ist sichtbar' : 'Ranking freischalten'}
+            {publicRankingVisible ? 'Ranking ist sichtbar' : 'Ranking freischalten'}
           </button>
         </div>
       </div>
