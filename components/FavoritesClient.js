@@ -34,67 +34,38 @@ function listValue(value) {
   return []
 }
 
-function formatAffiliateLinks(items = []) {
-  return (items || [])
-    .filter((item) => item?.manual_url)
-    .map((item) => `${item.provider_name || item.cta_text || item.provider_key || 'Angebot'}: ${item.manual_url}`)
+function absolutePoiUrl(poi) {
+  const origin = typeof window !== 'undefined' ? window.location.origin : (process.env.NEXT_PUBLIC_SITE_URL || 'https://usa-sights.com')
+  return poi?.slug ? `${origin}/poi/${poi.slug}` : origin
 }
 
-function poiDetailLines(poi) {
-  const ratingAverage = Number(poi?.rating_average || 0)
-  const ratingCount = Number(poi?.rating_count || 0)
-  const commentCount = Number(poi?.comment_count || 0)
-  const favoriteCount = Number(poi?.favorite_count || poi?.favorites_count || 0)
-  const editorial = poi?.editorial || {}
-  const visitorLines = [
-    poi?.opening_hours_text ? `Öffnungszeiten: ${cleanText(poi.opening_hours_text)}` : '',
-    poi?.price_info_text ? `Preise: ${cleanText(poi.price_info_text)}` : '',
-    poi?.city ? `Stadt: ${cleanText(poi.city)}` : '',
-    poi?.website_url ? `Website: ${poi.website_url}` : '',
-    poi?.hotels_nearby_text ? `Hotels in der Nähe: ${cleanText(poi.hotels_nearby_text)}` : '',
-    ...formatAffiliateLinks(poi?.affiliate_links || []),
-  ].filter(Boolean)
-  const editorialLines = [
-    ...listValue(editorial.highlights_json).map((x) => `Highlight: ${x}`),
-    ...listValue(editorial.nice_to_know_json).map((x) => `Nice to know: ${x}`),
-    editorial.visit_duration_text ? `Empfohlene Besuchsdauer: ${cleanText(editorial.visit_duration_text)}` : '',
-    editorial.best_time_to_visit_text ? `Beste Besuchszeit: ${cleanText(editorial.best_time_to_visit_text)}` : '',
-    typeof editorial?.family_friendly_json?.value === 'boolean' ? `Familienfreundlich: ${editorial.family_friendly_json.value ? 'Ja' : 'Nein'}` : '',
-    editorial?.family_friendly_json?.reason ? `Begründung Familienfreundlich: ${cleanText(editorial.family_friendly_json.reason)}` : '',
-    ...listValue(editorial.editorial_review_notes_json).map((x) => `Redaktioneller Hinweis: ${x}`),
-  ].filter(Boolean)
-
+function poiExportDescription(poi) {
+  const description = cleanHtml(poi?.description || poi?.short_description || '')
+  const link = absolutePoiUrl(poi)
   return [
-    poi?.title ? `Titel: ${cleanText(poi.title)}` : '',
-    poi?.category ? `Kategorie: ${cleanText(poi.category)}` : '',
-    poi?.city ? `Ort: ${cleanText(poi.city)}` : '',
-    ratingCount ? `Bewertung: ${ratingAverage ? ratingAverage.toFixed(1) : '0.0'} (${ratingCount} Bewertungen)` : '',
-    commentCount ? `Kommentare: ${commentCount}` : '',
-    favoriteCount ? `Favoriten: ${favoriteCount}` : '',
-    poi?.description ? `Beschreibung:\n${cleanHtml(poi.description)}` : (poi?.short_description ? `Beschreibung:\n${cleanText(poi.short_description)}` : ''),
-    visitorLines.length ? `Besucherinfos:\n${visitorLines.map((x) => `- ${x}`).join('\n')}` : '',
-    editorialLines.length ? `Redaktionelle Infos:\n${editorialLines.map((x) => `- ${x}`).join('\n')}` : '',
-  ].filter(Boolean)
+    description ? `Beschreibung:\n${description}` : '',
+    `POI-Link:\n${link}`,
+  ].filter(Boolean).join('\n\n')
 }
 
 function buildGpx(points = []) {
   const waypoints = points.map((poi) => {
     const coords = validCoords(poi)
     if (!coords) return ''
-    const lines = poiDetailLines(poi)
-    return `  <wpt lat="${coords.lat}" lon="${coords.lng}">\n    <name>${escapeXml(poi.title || 'POI')}</name>\n    <desc>${escapeXml(lines.join('\n\n'))}</desc>\n  </wpt>`
+    const desc = poiExportDescription(poi)
+    return `  <wpt lat="${coords.lat}" lon="${coords.lng}">\n    <name>${escapeXml(poi.title || 'POI')}</name>\n    <desc>${escapeXml(desc)}</desc>\n    <link href="${escapeXml(absolutePoiUrl(poi))}" />\n  </wpt>`
   }).filter(Boolean).join('\n')
-  return `<?xml version="1.0" encoding="UTF-8"?>\n<gpx version="1.1" creator="USA Sights" xmlns="http://www.topografix.com/GPX/1/1">\n  <metadata><name>USA Sights Favoriten</name><desc>Favorisierte POIs mit Detailinformationen.</desc></metadata>\n${waypoints}\n</gpx>`
+  return `<?xml version="1.0" encoding="UTF-8"?>\n<gpx version="1.1" creator="USA Sights" xmlns="http://www.topografix.com/GPX/1/1">\n  <metadata><name>USA Sights Favoriten</name><desc>Favorisierte POIs mit Beschreibung und POI-Link.</desc></metadata>\n${waypoints}\n</gpx>`
 }
 
 function buildKml(points = []) {
   const placemarks = points.map((poi) => {
     const coords = validCoords(poi)
     if (!coords) return ''
-    const lines = poiDetailLines(poi)
-    return `    <Placemark>\n      <name>${escapeXml(poi.title || 'POI')}</name>\n      <description>${escapeXml(lines.join('\n\n'))}</description>\n      <Point><coordinates>${coords.lng},${coords.lat},0</coordinates></Point>\n    </Placemark>`
+    const desc = poiExportDescription(poi)
+    return `    <Placemark>\n      <name>${escapeXml(poi.title || 'POI')}</name>\n      <description>${escapeXml(desc)}</description>\n      <Point><coordinates>${coords.lng},${coords.lat},0</coordinates></Point>\n    </Placemark>`
   }).filter(Boolean).join('\n')
-  return `<?xml version="1.0" encoding="UTF-8"?>\n<kml xmlns="http://www.opengis.net/kml/2.2">\n  <Document>\n    <name>USA Sights Favoriten</name>\n    <description>Favorisierte POIs mit Detailinformationen.</description>\n${placemarks}\n  </Document>\n</kml>`
+  return `<?xml version="1.0" encoding="UTF-8"?>\n<kml xmlns="http://www.opengis.net/kml/2.2">\n  <Document>\n    <name>USA Sights Favoriten</name>\n    <description>Favorisierte POIs mit Beschreibung und POI-Link.</description>\n${placemarks}\n  </Document>\n</kml>`
 }
 
 function downloadText(filename, mime, content) {
@@ -132,7 +103,7 @@ function FavoritesDownloadModal({ points, onClose }) {
           {thumb ? <img src={thumb} alt="" /> : <span />}
           <div>
             <strong>{points.length.toLocaleString('de-DE')} gespeicherte POIs</strong>
-            <span>Mit Koordinaten und den auf der Detailseite sichtbaren POI-Informationen.</span>
+            <span>Mit Beschreibung und Link zur POI-Detailseite.</span>
           </div>
         </div>
         <div className="favorites-download-options">

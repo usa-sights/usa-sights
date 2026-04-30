@@ -20,6 +20,35 @@ async function signImageVariants(admin, rows = []) {
   }))
 }
 
+async function attachPoiThumbs(admin, groups = []) {
+  const poiIds = Array.from(new Set(groups.flatMap((rows) => (rows || []).map((row) => row?.poi_id || row?.id).filter(Boolean))))
+  if (!poiIds.length) return new Map()
+  const imageRows = await safeData(
+    admin
+      .from('poi_images')
+      .select('poi_id,path,is_cover,is_gallery_pick,created_at,status')
+      .in('poi_id', poiIds)
+      .eq('status', 'approved')
+      .order('is_cover', { ascending: false })
+      .order('is_gallery_pick', { ascending: false })
+      .order('created_at', { ascending: false })
+  )
+  const firstByPoi = new Map()
+  for (const row of imageRows || []) {
+    if (!firstByPoi.has(row.poi_id)) firstByPoi.set(row.poi_id, row.path)
+  }
+  const paths = Array.from(new Set(Array.from(firstByPoi.values()).flatMap((path) => [deriveThumbPath(path), path]).filter(Boolean)))
+  if (!paths.length) return new Map()
+  const signed = await admin.storage.from('poi-images').createSignedUrls(paths, 3600)
+  const urlMap = Object.fromEntries((signed.data || []).map((item, index) => [paths[index], item?.signedUrl || null]))
+  return new Map(Array.from(firstByPoi.entries()).map(([poiId, path]) => [poiId, urlMap[deriveThumbPath(path)] || urlMap[path] || null]))
+}
+
+function withThumb(row, thumbByPoi) {
+  const poiId = row?.poi_id || row?.id
+  return { ...row, thumb_url: row?.thumb_url || (poiId ? thumbByPoi.get(poiId) : null) || null }
+}
+
 
 export async function GET(req) {
   const auth = await requireUserRoute(req)
@@ -46,13 +75,17 @@ export async function GET(req) {
     safeData(admin.from('poi_change_requests').select('id,created_at,status,poi_id,field_name,new_value, pois(title,slug)').eq('submitted_by', userId).order('created_at', { ascending:false }).limit(25)),
     safeData(admin.from('pois').select('id,title,slug,status,created_at,updated_at').eq('created_by', userId).order('updated_at', { ascending:false }).limit(25)),
   ])
-  const replies = repliesRaw.map((x) => ({ ...x, poi_title: x.poi_reviews?.pois?.title || 'POI', poi_slug: x.poi_reviews?.pois?.slug || null, poi_id: x.poi_reviews?.poi_id || null, review_id: x.review_id }))
   const signedImagesRaw = await signImageVariants(admin, imagesRaw || [])
-  const images = signedImagesRaw.map((x) => ({ ...x, poi_title: x.pois?.title || 'POI', poi_slug: x.pois?.slug || null }))
-  const links = linksRaw.map((x) => ({ ...x, poi_title: x.pois?.title || 'POI', poi_slug: x.pois?.slug || null, href: x.pois?.slug ? `/poi/${x.pois.slug}#poi-link-${x.id}` : '/account?section=links' }))
-  const changes = changesRaw.map((x) => ({ ...x, poi_title: x.pois?.title || 'POI', poi_slug: x.pois?.slug || null }))
-  const submissions = poisRaw
-  const recentActivity = [...favorites.map((x) => ({ type:'Favorit', created_at:x.created_at, label:x.pois?.title || 'POI', href:x.pois?.slug ? `/poi/${x.pois.slug}` : '/account?section=favorites' })), ...reviews.map((x) => ({ type:'Bewertung', created_at:x.created_at, label:`${x.pois?.title || 'POI'} · ${x.rating}/5`, href:x.pois?.slug ? `/poi/${x.pois.slug}#review-${x.id}` : '/account?section=reviews' })), ...replies.map((x) => ({ type:'Antwort', created_at:x.created_at, label:`${x.poi_title} · ${x.reply_text || 'Antwort'}`, href:x.poi_slug ? `/poi/${x.poi_slug}#reply-${x.id}` : '/account?section=replies' })), ...images.map((x) => ({ type:'Bild', created_at:x.created_at, label:`${x.poi_title} · ${x.status}`, href:x.poi_slug ? `/poi/${x.poi_slug}#poi-gallery` : '/account?section=images' })), ...links.map((x) => ({ type:'Link', created_at:x.created_at, label:`${x.poi_title} · ${x.label || 'Link'}`, href:x.href, url:x.url || '' })), ...changes.map((x) => ({ type:'Änderung', created_at:x.created_at, label:`${x.poi_title} · ${x.status}`, href:x.poi_slug ? `/poi/${x.poi_slug}#poi-visitor-info` : '/account?section=changes' })), ...submissions.map((x) => ({ type:'Einreichung', created_at:x.updated_at || x.created_at, label:`${x.title} · ${x.status}`, href:`/account/my-pois/${x.id}` }))].sort((a,b) => new Date(b.created_at || 0) - new Date(a.created_at || 0)).slice(0,12).map((item) => ({ ...item, created_at_label: fmt(item.created_at) }))
+  const imagesBase = signedImagesRaw.map((x) => ({ ...x, poi_title: x.pois?.title || 'POI', poi_slug: x.pois?.slug || null }))
+  const thumbByPoi = await attachPoiThumbs(admin, [favorites, reviews, replies, imagesBase, linksRaw, changesRaw, poisRaw])
+  const favoritesWithThumb = favorites.map((x) => withThumb(x, thumbByPoi))
+  const reviewsWithThumb = reviews.map((x) => withThumb(x, thumbByPoi))
+  const replies = repliesRaw.map((x) => withThumb({ ...x, poi_title: x.poi_reviews?.pois?.title || 'POI', poi_slug: x.poi_reviews?.pois?.slug || null, poi_id: x.poi_reviews?.poi_id || null, review_id: x.review_id }, thumbByPoi))
+  const images = imagesBase.map((x) => withThumb(x, thumbByPoi))
+  const links = linksRaw.map((x) => withThumb({ ...x, poi_title: x.pois?.title || 'POI', poi_slug: x.pois?.slug || null, href: x.pois?.slug ? `/poi/${x.pois.slug}#poi-link-${x.id}` : '/account?section=links' }, thumbByPoi))
+  const changes = changesRaw.map((x) => withThumb({ ...x, poi_title: x.pois?.title || 'POI', poi_slug: x.pois?.slug || null }, thumbByPoi))
+  const submissions = poisRaw.map((x) => withThumb(x, thumbByPoi))
+  const recentActivity = [...favoritesWithThumb.map((x) => ({ type:'Favorit', created_at:x.created_at, label:x.pois?.title || 'POI', href:x.pois?.slug ? `/poi/${x.pois.slug}` : '/account?section=favorites', thumb_url:x.thumb_url })), ...reviewsWithThumb.map((x) => ({ type:'Bewertung', created_at:x.created_at, label:`${x.pois?.title || 'POI'} · ${x.rating}/5`, href:x.pois?.slug ? `/poi/${x.pois.slug}#review-${x.id}` : '/account?section=reviews', thumb_url:x.thumb_url })), ...replies.map((x) => ({ type:'Antwort', created_at:x.created_at, label:`${x.poi_title} · ${x.reply_text || 'Antwort'}`, href:x.poi_slug ? `/poi/${x.poi_slug}#reply-${x.id}` : '/account?section=replies', thumb_url:x.thumb_url })), ...images.map((x) => ({ type:'Bild', created_at:x.created_at, label:`${x.poi_title} · ${x.status}`, href:x.poi_slug ? `/poi/${x.poi_slug}#poi-gallery` : '/account?section=images', thumb_url:x.thumb_url })), ...links.map((x) => ({ type:'Link', created_at:x.created_at, label:`${x.poi_title} · ${x.label || 'Link'}`, href:x.href, url:x.url || '', thumb_url:x.thumb_url })), ...changes.map((x) => ({ type:'Änderung', created_at:x.created_at, label:`${x.poi_title} · ${x.status}`, href:x.poi_slug ? `/poi/${x.poi_slug}#poi-visitor-info` : '/account?section=changes', thumb_url:x.thumb_url })), ...submissions.map((x) => ({ type:'Einreichung', created_at:x.updated_at || x.created_at, label:`${x.title} · ${x.status}`, href:`/account/my-pois/${x.id}`, thumb_url:x.thumb_url }))].sort((a,b) => new Date(b.created_at || 0) - new Date(a.created_at || 0)).slice(0,12).map((item) => ({ ...item, created_at_label: fmt(item.created_at) }))
   const pendingOwnTotal = pendingOwnPois + pendingOwnImages + pendingOwnLinks
-  return Response.json({ kpis:{ favoritesCount, ownReviewsCount, ownRepliesCount, ownImagesCount, ownLinksCount, ownChangesCount, publishedOwnPois, pendingOwnImages, pendingOwnLinks, pendingOwnPois, pendingOwnTotal, ownPoisCount }, lists:{ favorites, reviews, replies, images, links, changes, submissions }, recentActivity }, { headers:{ 'Cache-Control':'no-store' } })
+  return Response.json({ kpis:{ favoritesCount, ownReviewsCount, ownRepliesCount, ownImagesCount, ownLinksCount, ownChangesCount, publishedOwnPois, pendingOwnImages, pendingOwnLinks, pendingOwnPois, pendingOwnTotal, ownPoisCount }, lists:{ favorites: favoritesWithThumb, reviews: reviewsWithThumb, replies, images, links, changes, submissions }, recentActivity }, { headers:{ 'Cache-Control':'no-store' } })
 }
