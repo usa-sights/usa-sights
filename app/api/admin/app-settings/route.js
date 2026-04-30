@@ -21,8 +21,9 @@ export async function PUT(req) {
   try {
     const body = await req.json()
     const next = body?.publicRankingVisible === true
-    const data = await setAppSetting('public_ranking_visible', next, auth.admin)
-    return Response.json({ ok: true, publicRankingVisible: data?.value_json === true, message: `Öffentliches Ranking ${next ? 'freigeschaltet' : 'versteckt'}.` }, { headers: { 'Cache-Control': 'no-store' } })
+    await setAppSetting('public_ranking_visible', next, auth.admin)
+    const persisted = await getPublicRankingVisible(auth.admin)
+    return Response.json({ ok: true, publicRankingVisible: persisted.value === true, message: `Öffentliches Ranking ${next ? 'freigeschaltet' : 'versteckt'}.` }, { headers: { 'Cache-Control': 'no-store' } })
   } catch (error) {
     return Response.json({ error: error.message || 'Einstellung konnte nicht gespeichert werden.' }, { status: 500 })
   }
