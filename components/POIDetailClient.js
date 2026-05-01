@@ -11,27 +11,26 @@ import { buildSmartAffiliateCards } from '@/lib/affiliateSmart'
 
 const hasContent = (v) => typeof v === 'string' ? v.trim().length > 0 : !!v
 
-function parseMaybeJson(value) {
+function parseMaybeJson(value, fallback) {
+  if (value == null || value === '') return fallback
   if (typeof value !== 'string') return value
-  const trimmed = value.trim()
-  if (!trimmed) return value
   try {
-    return JSON.parse(trimmed)
+    return JSON.parse(value)
   } catch {
-    return value
+    return fallback
   }
 }
 
-const asList = (value) => {
-  const parsed = parseMaybeJson(value)
-  if (Array.isArray(parsed)) return parsed.filter(Boolean)
-  if (typeof parsed === 'string') return parsed.split(/\r?\n/).map((x) => x.trim()).filter(Boolean)
+const asList = (v) => {
+  const value = parseMaybeJson(v, v)
+  if (Array.isArray(value)) return value.map((item) => String(item || '').trim()).filter(Boolean)
+  if (typeof value === 'string') return value.split(/\r?\n|\s*\|\s*/).map((item) => item.trim()).filter(Boolean)
   return []
 }
 
-const asObject = (value) => {
-  const parsed = parseMaybeJson(value)
-  return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {}
+const asObject = (v) => {
+  const value = parseMaybeJson(v, {})
+  return value && typeof value === 'object' && !Array.isArray(value) ? value : {}
 }
 
 function Section({ id = null, title, children }) {
@@ -166,9 +165,9 @@ export default function POIDetailClient({ slug }) {
   if (poi === undefined) return <main className="container"><p>Lädt ...</p></main>
   if (poi === null) return <main className="container"><div className="error-box">POI nicht gefunden.</div></main>
 
-  const highlights = asList(editorial?.highlights_json ?? editorial?.highlights)
-  const niceToKnow = asList(editorial?.nice_to_know_json ?? editorial?.nice_to_know)
-  const tags = asList(editorial?.suggested_tags_json ?? editorial?.suggested_tags)
+  const highlights = asList(editorial?.highlights_json)
+  const niceToKnow = asList(editorial?.nice_to_know_json)
+  const tags = asList(editorial?.suggested_tags_json)
   const familyFriendly = asObject(editorial?.family_friendly_json)
   const afterDescription = affiliateBlocks.filter((x) => x.placement === 'after_description')
   const afterVisitInfo = affiliateBlocks.filter((x) => x.placement === 'after_visit_info')
