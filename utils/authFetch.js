@@ -64,6 +64,28 @@ async function getAuthToken() {
   return getTokenFromBrowserStorage()
 }
 
+function getRequestPath(input) {
+  const raw = typeof input === 'string' ? input : input?.toString?.() || ''
+  try {
+    return new URL(raw, window.location.origin).pathname
+  } catch {
+    return raw.split('?')[0] || raw
+  }
+}
+
+function shouldDispatchDataChanged(input, method) {
+  if (['GET', 'HEAD', 'OPTIONS'].includes(method)) return false
+  const path = getRequestPath(input)
+
+  // App settings, especially the public ranking toggle in the admin rail, are
+  // UI/navigation state. They must not invalidate or reload dashboard metrics.
+  // On production this reload could briefly hit admin dashboard APIs while auth
+  // cookies were being refreshed, causing empty chips and missing thumbnails.
+  if (path === '/api/admin/app-settings' || path === '/api/public/app-settings') return false
+
+  return true
+}
+
 export async function authFetch(input, init = {}) {
   const token = await getAuthToken()
   const method = normalizeMethod(init.method)
@@ -77,7 +99,7 @@ export async function authFetch(input, init = {}) {
     ...(shouldBypassCache(method, init) ? { cache: 'no-store' } : {}),
   })
 
-  if (response.ok && !['GET', 'HEAD', 'OPTIONS'].includes(method)) {
+  if (response.ok && shouldDispatchDataChanged(input, method)) {
     dispatchAppDataChanged({
       method,
       url: typeof input === 'string' ? input : input?.toString?.() || '',
