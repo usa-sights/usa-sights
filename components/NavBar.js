@@ -48,7 +48,11 @@ function RankingVisibilityToggle({ vertical = false }) {
   const [error, setError] = useState("")
 
   async function loadSetting() {
-    const data = await authFetchJson("/api/admin/app-settings?t=" + Date.now(), { cache: "no-store" }).catch(() => ({ publicRankingVisible: false }))
+    const data = await authFetchJson("/api/admin/app-settings?t=" + Date.now(), { cache: "no-store" }).catch((e) => ({ error: e.message }))
+    if (data.error) {
+      setError(data.error)
+      return
+    }
     setEnabled(data.publicRankingVisible === true)
   }
 
@@ -57,21 +61,26 @@ function RankingVisibilityToggle({ vertical = false }) {
   async function toggle() {
     if (saving) return
     const nextValue = !enabled
+    const previousValue = enabled
     setSaving(true)
     setError("")
-    setEnabled(nextValue)
-    const data = await authFetchJson("/api/admin/app-settings", {
+
+    const data = await authFetchJson("/api/admin/app-settings?t=" + Date.now(), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ publicRankingVisible: nextValue }),
       cache: "no-store",
     }).catch((e) => ({ error: e.message }))
-    if (data.error || data.publicRankingVisible !== nextValue) {
-      setEnabled(!nextValue)
-      setError(data.error || "Ranking-Einstellung konnte nicht dauerhaft gespeichert werden.")
-    } else {
-      window.dispatchEvent(new Event("app-settings-changed"))
+
+    if (data.error || data.ok !== true || data.publicRankingVisible !== nextValue) {
+      setEnabled(previousValue)
+      setError(data.error || "Ranking-Einstellung wurde nicht gespeichert. Bitte erneut versuchen.")
+      setSaving(false)
+      return
     }
+
+    setEnabled(nextValue)
+    window.dispatchEvent(new CustomEvent("app-settings-changed", { detail: { publicRankingVisible: nextValue } }))
     setSaving(false)
   }
 
@@ -82,6 +91,7 @@ function RankingVisibilityToggle({ vertical = false }) {
     </button>
   )
 }
+
 
 export default function NavBar() {
   const supabase = useMemo(() => createBrowserSupabaseClient(), [])
@@ -139,7 +149,7 @@ export default function NavBar() {
     async function init() {
       const [sessionResult, settingsResult] = await Promise.all([
         supabase.auth.getSession(),
-        fetch('/api/public/app-settings', { cache: 'no-store' }).then((res) => res.json()).catch(() => ({ publicRankingVisible: false })),
+        fetch('/api/public/app-settings?t=' + Date.now(), { cache: 'no-store' }).then((res) => res.json()).catch(() => ({ publicRankingVisible: false })),
       ])
       if (cancelled) return
       const u = sessionResult.data.session?.user ?? null
@@ -160,8 +170,12 @@ export default function NavBar() {
     async function onPendingChanged() {
       await profileRefreshRef.current?.(currentUserRef.current)
     }
-    async function onSettingsChanged() {
-      const settingsResult = await fetch('/api/public/app-settings', { cache: 'no-store' }).then((res) => res.json()).catch(() => ({ publicRankingVisible: false }))
+    async function onSettingsChanged(event) {
+      if (event?.detail && Object.prototype.hasOwnProperty.call(event.detail, 'publicRankingVisible')) {
+        if (!cancelled) setPublicRankingVisible(event.detail.publicRankingVisible === true)
+        return
+      }
+      const settingsResult = await fetch('/api/public/app-settings?t=' + Date.now(), { cache: 'no-store' }).then((res) => res.json()).catch(() => ({ publicRankingVisible: false }))
       if (!cancelled) setPublicRankingVisible(settingsResult.publicRankingVisible === true)
     }
 

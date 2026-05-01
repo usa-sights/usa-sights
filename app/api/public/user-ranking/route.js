@@ -3,6 +3,19 @@ import { deriveThumbPath } from '@/lib/imageUpload'
 import { getPublicRankingVisible } from '@/lib/appSettings'
 
 export const dynamic = 'force-dynamic'
+export const revalidate = 0
+
+function noStoreJson(body, init = {}) {
+  return Response.json(body, {
+    ...init,
+    headers: {
+      'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
+      'Pragma': 'no-cache',
+      'Expires': '0',
+      ...(init.headers || {}),
+    },
+  })
+}
 
 async function fetchAllRows(builderFactory, pageSize = 1000) {
   const rows = []
@@ -100,7 +113,7 @@ export async function GET(req) {
 
   const rankingSetting = await getPublicRankingVisible(admin)
   if (!rankingSetting.value) {
-    return Response.json({ enabled: false, items: [], total: 0, page, pageSize, totals: { users: 0, contributions: 0 }, details: [] }, { headers: { 'Cache-Control': 'public, max-age=30, stale-while-revalidate=120' } })
+    return noStoreJson({ enabled: false, items: [], total: 0, page, pageSize, totals: { users: 0, contributions: 0 }, details: [] })
   }
 
   const [profiles, pois, images, links, reviews, replies] = await Promise.all([
@@ -172,5 +185,5 @@ export async function GET(req) {
     }
   }
 
-  return Response.json({ enabled: true, items, total, page, pageSize, totals: { users: rows.length, contributions: totalContributions }, details }, { headers: { 'Cache-Control': 'public, max-age=60, stale-while-revalidate=300' } })
+  return noStoreJson({ enabled: true, items, total, page, pageSize, totals: { users: rows.length, contributions: totalContributions }, details })
 }

@@ -36,7 +36,7 @@ export default function UserRankingClient() {
 
   useEffect(() => {
     async function load() {
-      const params = new URLSearchParams({ sort: sortKey, dir: sortDir, page: String(page), page_size: '25' })
+      const params = new URLSearchParams({ sort: sortKey, dir: sortDir, page: String(page), page_size: '25', t: String(Date.now()) })
       if (selected.userId && selected.contentType) {
         params.set('user_id', selected.userId)
         params.set('content_type', selected.contentType)

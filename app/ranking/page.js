@@ -1,11 +1,14 @@
 import dynamicImport from 'next/dynamic'
+import { noStore } from 'next/cache'
 import { getPublicRankingVisible } from '@/lib/appSettings'
 
 const UserRankingClient = dynamicImport(() => import('@/components/UserRankingClient'), { ssr: false })
 
 export const dynamic = 'force-dynamic'
+export const revalidate = 0
 
 export default async function Page() {
+  noStore()
   const setting = await getPublicRankingVisible()
   if (!setting.value) {
     return (
