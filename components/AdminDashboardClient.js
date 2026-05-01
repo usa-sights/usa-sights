@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { authFetchJson } from '@/utils/authFetch'
+import { authFetch, authFetchJson } from '@/utils/authFetch'
 import { Activity, Heart, Image as ImageIcon, Link2, MapPinned, MessageCircle, Reply, ShieldAlert, Star, Users } from 'lucide-react'
 
 function MetricCard({ icon: Icon, title, total, totalInfo, items = [] }) {
@@ -85,13 +85,20 @@ export default function AdminDashboardClient() {
   const [data, setData] = useState(null)
   const [error, setError] = useState('')
   const [refreshTick, setRefreshTick] = useState(0)
+  const [publicRankingVisible, setPublicRankingVisible] = useState(false)
+  const [settingsMissing, setSettingsMissing] = useState(false)
+  const [settingsSaving, setSettingsSaving] = useState(false)
+  const [settingsError, setSettingsError] = useState('')
 
   useEffect(() => {
     let active = true
 
     async function load() {
       try {
-        const dashboardRes = await authFetchJson('/api/admin/dashboard', { cache: 'no-store' })
+        const [dashboardRes, settingsRes] = await Promise.all([
+          authFetchJson('/api/admin/dashboard', { cache: 'no-store' }),
+          authFetchJson('/api/admin/app-settings', { cache: 'no-store' }).catch(() => ({ publicRankingVisible: false, missingTable: true })),
+        ])
         if (!active) return
         if (dashboardRes.error) {
           setError(dashboardRes.error)
@@ -99,6 +106,8 @@ export default function AdminDashboardClient() {
         }
         setError('')
         setData(dashboardRes)
+        setPublicRankingVisible(settingsRes.publicRankingVisible === true)
+        setSettingsMissing(settingsRes.missingTable === true)
       } catch (e) {
         if (active) setError(e.message)
       }
@@ -131,6 +140,38 @@ export default function AdminDashboardClient() {
 
   if (error) return <main className="container"><div className="error-box">{error}</div></main>
   if (!data) return <main className="container"><p>Lädt ...</p></main>
+
+  async function togglePublicRanking() {
+    if (settingsSaving) return
+    const desiredValue = !publicRankingVisible
+    setSettingsSaving(true)
+    setSettingsError('')
+    setPublicRankingVisible(desiredValue)
+
+    try {
+      const next = await authFetchJson('/api/admin/app-settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ publicRankingVisible: desiredValue }),
+        cache: 'no-store',
+      })
+      if (next.error) throw new Error(next.error)
+
+      const persistedValue = next.publicRankingVisible === true
+      setPublicRankingVisible(persistedValue)
+      if (persistedValue !== desiredValue) {
+        throw new Error('Die Einstellung wurde nicht dauerhaft gespeichert. Bitte app_settings in Supabase prüfen.')
+      }
+
+      window.dispatchEvent(new Event('app-settings-changed'))
+      window.dispatchEvent(new Event('app-data-changed'))
+    } catch (e) {
+      setPublicRankingVisible(!desiredValue)
+      setSettingsError(e.message || 'Einstellung konnte nicht gespeichert werden.')
+    } finally {
+      setSettingsSaving(false)
+    }
+  }
 
   const { kpis, moderationItems, activityFeed, quality } = data
 

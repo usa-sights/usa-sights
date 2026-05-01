@@ -8,59 +8,10 @@ import POIReviews from '@/components/POIReviews'
 import AffiliateSmartCards from '@/components/AffiliateSmartCards'
 import UserPOIImageUploader from '@/components/UserPOIImageUploader'
 import { buildSmartAffiliateCards } from '@/lib/affiliateSmart'
-
-function parseMaybeJson(value) {
-  if (typeof value !== 'string') return value
-  const trimmed = value.trim()
-  if (!trimmed) return ''
-  if (!['[', '{', '"'].includes(trimmed[0]) && trimmed !== 'true' && trimmed !== 'false') return value
-  try {
-    return JSON.parse(trimmed)
-  } catch {
-    return value
-  }
-}
+import { normalizeEditorialRecord, normalizeList, normalizeFamilyFriendly } from '@/lib/poiEditorial'
 
 const hasContent = (v) => typeof v === 'string' ? v.trim().length > 0 : !!v
-
-function asList(value) {
-  const parsed = parseMaybeJson(value)
-  if (Array.isArray(parsed)) return parsed.map((item) => typeof item === 'string' ? item : String(item?.label || item?.title || item?.name || item?.text || '')).map((x) => x.trim()).filter(Boolean)
-  if (parsed && typeof parsed === 'object') {
-    if (Array.isArray(parsed.items)) return asList(parsed.items)
-    if (Array.isArray(parsed.value)) return asList(parsed.value)
-    if (Array.isArray(parsed.list)) return asList(parsed.list)
-    return Object.values(parsed).flatMap((item) => asList(item)).filter(Boolean)
-  }
-  if (typeof parsed === 'string') {
-    const separator = parsed.includes('\n') ? /\r?\n/ : parsed.includes('|') ? /\|/ : parsed.includes(';') ? /;/ : null
-    return (separator ? parsed.split(separator) : [parsed]).map((x) => x.trim()).filter(Boolean)
-  }
-  return []
-}
-
-function familyFriendlyValue(value) {
-  const parsed = parseMaybeJson(value)
-  if (typeof parsed === 'boolean') return { value: parsed, reason: '' }
-  if (typeof parsed === 'string') {
-    const lower = parsed.trim().toLowerCase()
-    if (['true', 'ja', 'yes'].includes(lower)) return { value: true, reason: '' }
-    if (['false', 'nein', 'no'].includes(lower)) return { value: false, reason: '' }
-    return { value: null, reason: parsed }
-  }
-  if (parsed && typeof parsed === 'object') {
-    const rawValue = parsed.value ?? parsed.is_family_friendly ?? parsed.family_friendly
-    let boolValue = null
-    if (typeof rawValue === 'boolean') boolValue = rawValue
-    if (typeof rawValue === 'string') {
-      const lower = rawValue.trim().toLowerCase()
-      if (['true', 'ja', 'yes'].includes(lower)) boolValue = true
-      if (['false', 'nein', 'no'].includes(lower)) boolValue = false
-    }
-    return { value: boolValue, reason: parsed.reason || parsed.begruendung || parsed.explanation || '' }
-  }
-  return { value: null, reason: '' }
-}
+const asList = (v) => normalizeList(v)
 
 function Section({ id = null, title, children }) {
   return <div id={id || undefined} className="card" style={{ marginTop: 16 }}><h2>{title}</h2>{children}</div>
@@ -95,12 +46,12 @@ export default function POIDetailClient({ slug }) {
       return
     }
     setPoi(data.item)
-    setEditorial(data.editorial || null)
+    setEditorial(data.editorial ? normalizeEditorialRecord(data.editorial) : null)
     setImages(data.images || [])
     setLinks(data.links || [])
     setAffiliateBlocks(buildSmartAffiliateCards({
       poi: data.item,
-      editorial: data.editorial || null,
+      editorial: data.editorial ? normalizeEditorialRecord(data.editorial) : null,
       affiliateSettings: data.affiliates || [],
     }))
   }, [slug])
@@ -194,10 +145,9 @@ export default function POIDetailClient({ slug }) {
   if (poi === undefined) return <main className="container"><p>Lädt ...</p></main>
   if (poi === null) return <main className="container"><div className="error-box">POI nicht gefunden.</div></main>
 
-  const highlights = asList(editorial?.highlights_json ?? editorial?.highlights)
-  const niceToKnow = asList(editorial?.nice_to_know_json ?? editorial?.nice_to_know)
-  const tags = asList(editorial?.suggested_tags_json ?? editorial?.suggested_tags ?? editorial?.tags)
-  const familyFriendly = familyFriendlyValue(editorial?.family_friendly_json)
+  const highlights = asList(editorial?.highlights_json)
+  const niceToKnow = asList(editorial?.nice_to_know_json)
+  const tags = asList(editorial?.suggested_tags_json)
   const afterDescription = affiliateBlocks.filter((x) => x.placement === 'after_description')
   const afterVisitInfo = affiliateBlocks.filter((x) => x.placement === 'after_visit_info')
   const hasEditorial =
@@ -205,8 +155,8 @@ export default function POIDetailClient({ slug }) {
     niceToKnow.length ||
     hasContent(editorial?.visit_duration_text) ||
     hasContent(editorial?.best_time_to_visit_text) ||
-    typeof familyFriendly.value === 'boolean' ||
-    hasContent(familyFriendly.reason) ||
+    typeof normalizeFamilyFriendly(editorial?.family_friendly_json)?.value === 'boolean' ||
+    hasContent(normalizeFamilyFriendly(editorial?.family_friendly_json)?.reason) ||
     tags.length
 
   return (
@@ -241,8 +191,8 @@ export default function POIDetailClient({ slug }) {
               {niceToKnow.length ? <><h3>Nice to know</h3><ul>{niceToKnow.map((x, i) => <li key={i}>{x}</li>)}</ul></> : null}
               {hasContent(editorial?.visit_duration_text) ? <p><strong>Empfohlene Besuchsdauer:</strong> {editorial.visit_duration_text}</p> : null}
               {hasContent(editorial?.best_time_to_visit_text) ? <p><strong>Beste Besuchszeit:</strong> {editorial.best_time_to_visit_text}</p> : null}
-              {typeof familyFriendly.value === 'boolean' ? <p><strong>Familienfreundlich:</strong> {familyFriendly.value ? 'Ja' : 'Nein'}</p> : null}
-              {hasContent(familyFriendly.reason) ? <p><strong>Begründung Familienfreundlich:</strong> {familyFriendly.reason}</p> : null}
+              {typeof editorial?.family_friendly_json?.value === 'boolean' ? <p><strong>Familienfreundlich:</strong> {normalizeFamilyFriendly(editorial.family_friendly_json).value ? 'Ja' : 'Nein'}</p> : null}
+              {hasContent(editorial?.family_friendly_json?.reason) ? <p><strong>Begründung Familienfreundlich:</strong> {normalizeFamilyFriendly(editorial.family_friendly_json).reason}</p> : null}
               {tags.length ? <><h3>Tags</h3><div>{tags.map((tag, i) => <span key={i} className="badge">{tag}</span>)}</div></> : null}
             </>
           ) : (

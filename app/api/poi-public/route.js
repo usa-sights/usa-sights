@@ -1,5 +1,6 @@
 import { createSupabaseAdminClient } from '@/utils/supabase/admin'
 import { deriveThumbPath } from '@/lib/imageUpload'
+import { normalizeEditorialRecord, normalizePoiRecord } from '@/lib/poiEditorial'
 
 export const dynamic = 'force-dynamic'
 
@@ -58,8 +59,8 @@ export async function GET(req) {
     }))
 
   return Response.json({
-    item: poi,
-    editorial: editorialResult.data || null,
+    item: normalizePoiRecord(poi),
+    editorial: editorialResult.data ? normalizeEditorialRecord(editorialResult.data) : null,
     links: linksResult.data || [],
     affiliates,
     images: images.map((img) => ({

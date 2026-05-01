@@ -6,9 +6,9 @@ export async function GET() {
   try {
     const result = await getPublicRankingVisible()
     return Response.json({ publicRankingVisible: result.value, missingTable: result.missingTable }, {
-      headers: { 'Cache-Control': 'public, max-age=60, stale-while-revalidate=300' }
+      headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0' }
     })
   } catch (error) {
-    return Response.json({ publicRankingVisible: false, error: error.message || 'Einstellungen konnten nicht geladen werden.' }, { status: 500 })
+    return Response.json({ publicRankingVisible: false, error: error.message || 'Einstellungen konnten nicht geladen werden.' }, { status: 500, headers: { 'Cache-Control': 'no-store' } })
   }
 }

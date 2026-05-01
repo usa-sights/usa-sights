@@ -43,68 +43,42 @@ function MapNavToggle({ vertical = false }) {
 }
 
 function RankingVisibilityToggle({ vertical = false }) {
-  const [visible, setVisible] = useState(null)
+  const [enabled, setEnabled] = useState(false)
   const [saving, setSaving] = useState(false)
-  const [error, setError] = useState('')
+  const [error, setError] = useState("")
 
-  async function load() {
-    const data = await authFetchJson('/api/admin/app-settings', { cache: 'no-store' }).catch((e) => ({ error: e.message }))
-    if (data.error) {
-      setError(data.error)
-      setVisible(false)
-      return
-    }
-    setError(data.missingTable ? 'app_settings fehlt' : '')
-    setVisible(data.publicRankingVisible === true)
+  async function loadSetting() {
+    const data = await authFetchJson("/api/admin/app-settings?t=" + Date.now(), { cache: "no-store" }).catch(() => ({ publicRankingVisible: false }))
+    setEnabled(data.publicRankingVisible === true)
   }
 
-  useEffect(() => {
-    if (typeof window === 'undefined') return
-    load()
-    const onSettingsChanged = () => load()
-    window.addEventListener('app-settings-changed', onSettingsChanged)
-    return () => window.removeEventListener('app-settings-changed', onSettingsChanged)
-  }, [])
+  useEffect(() => { loadSetting() }, [])
 
   async function toggle() {
-    if (saving || visible === null) return
-    const nextVisible = !visible
+    if (saving) return
+    const nextValue = !enabled
     setSaving(true)
-    setError('')
-    try {
-      const data = await authFetchJson('/api/admin/app-settings', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ publicRankingVisible: nextVisible }),
-        cache: 'no-store',
-      })
-      if (data.error) throw new Error(data.error)
-      if (data.ok === false || data.publicRankingVisible !== nextVisible) {
-        throw new Error('Ranking-Einstellung wurde nicht gespeichert.')
-      }
-      setVisible(data.publicRankingVisible === true)
-      window.dispatchEvent(new Event('app-settings-changed'))
-      window.dispatchEvent(new Event('app-data-changed'))
-    } catch (e) {
-      setError(e.message || 'Ranking-Einstellung konnte nicht gespeichert werden.')
-      await load()
-    } finally {
-      setSaving(false)
+    setError("")
+    setEnabled(nextValue)
+    const data = await authFetchJson("/api/admin/app-settings", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ publicRankingVisible: nextValue }),
+      cache: "no-store",
+    }).catch((e) => ({ error: e.message }))
+    if (data.error || data.publicRankingVisible !== nextValue) {
+      setEnabled(!nextValue)
+      setError(data.error || "Ranking-Einstellung konnte nicht dauerhaft gespeichert werden.")
+    } else {
+      window.dispatchEvent(new Event("app-settings-changed"))
     }
+    setSaving(false)
   }
 
-  const label = visible === null
-    ? 'Ranking lädt ...'
-    : saving
-      ? 'Ranking speichert ...'
-      : visible
-        ? 'Ranking an'
-        : 'Ranking aus'
-
   return (
-    <button type="button" className={vertical ? 'admin-rail-link admin-toggle-btn' : 'nav-link-button admin-toggle-btn'} onClick={toggle} title={error || 'Steuert, ob der Ranking-Menüpunkt im öffentlichen Menü sichtbar ist.'} disabled={saving || visible === null}>
+    <button type="button" className={vertical ? "admin-rail-link admin-toggle-btn" : "nav-link-button admin-toggle-btn"} onClick={toggle} disabled={saving} title={error || "Steuert, ob das öffentliche Ranking im Frontend sichtbar und aufrufbar ist."}>
       <Trophy size={18} />
-      <span>{label}</span>
+      <span>{saving ? "Ranking speichert ..." : enabled ? "Ranking an" : "Ranking aus"}</span>
     </button>
   )
 }

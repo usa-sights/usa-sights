@@ -167,7 +167,7 @@ export async function GET(req) {
     safeCount(admin.from('poi_external_links').select('*', { count: 'exact', head: true }).eq('status', 'rejected')),
     safeData(admin.from('pois').select('id,title,slug,status,updated_at,created_at').order('updated_at', { ascending: false }).limit(8)),
     safeData(admin.from('poi_reviews').select('id,created_at,poi_id,rating,pois(title,slug)').order('created_at', { ascending: false }).limit(8)),
-    safeData(admin.from('poi_images').select('id,poi_id,created_at,status,pois(title,slug)').order('created_at', { ascending: false }).limit(8)),
+    safeData(admin.from('poi_images').select('id,poi_id,path,created_at,status,pois(title,slug)').order('created_at', { ascending: false }).limit(8)),
     safeData(admin.from('poi_external_links').select('id,poi_id,created_at,status,url,label,pois(title,slug)').order('created_at', { ascending: false }).limit(8)),
     safeData(admin.from('poi_review_replies').select('id,review_id,created_at,reply_text,poi_reviews(poi_id,pois(title,slug))').order('created_at', { ascending: false }).limit(8)),
     fetchAllRows(() => admin.from('pois').select('id,category_id,description')),
