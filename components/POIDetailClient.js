@@ -9,28 +9,57 @@ import AffiliateSmartCards from '@/components/AffiliateSmartCards'
 import UserPOIImageUploader from '@/components/UserPOIImageUploader'
 import { buildSmartAffiliateCards } from '@/lib/affiliateSmart'
 
-const hasContent = (v) => typeof v === 'string' ? v.trim().length > 0 : !!v
-
-function parseMaybeJson(value, fallback) {
-  if (value == null || value === '') return fallback
+function parseMaybeJson(value) {
   if (typeof value !== 'string') return value
+  const trimmed = value.trim()
+  if (!trimmed) return ''
+  if (!['[', '{', '"'].includes(trimmed[0]) && trimmed !== 'true' && trimmed !== 'false') return value
   try {
-    return JSON.parse(value)
+    return JSON.parse(trimmed)
   } catch {
-    return fallback
+    return value
   }
 }
 
-const asList = (v) => {
-  const value = parseMaybeJson(v, v)
-  if (Array.isArray(value)) return value.map((item) => String(item || '').trim()).filter(Boolean)
-  if (typeof value === 'string') return value.split(/\r?\n|\s*\|\s*/).map((item) => item.trim()).filter(Boolean)
+const hasContent = (v) => typeof v === 'string' ? v.trim().length > 0 : !!v
+
+function asList(value) {
+  const parsed = parseMaybeJson(value)
+  if (Array.isArray(parsed)) return parsed.map((item) => typeof item === 'string' ? item : String(item?.label || item?.title || item?.name || item?.text || '')).map((x) => x.trim()).filter(Boolean)
+  if (parsed && typeof parsed === 'object') {
+    if (Array.isArray(parsed.items)) return asList(parsed.items)
+    if (Array.isArray(parsed.value)) return asList(parsed.value)
+    if (Array.isArray(parsed.list)) return asList(parsed.list)
+    return Object.values(parsed).flatMap((item) => asList(item)).filter(Boolean)
+  }
+  if (typeof parsed === 'string') {
+    const separator = parsed.includes('\n') ? /\r?\n/ : parsed.includes('|') ? /\|/ : parsed.includes(';') ? /;/ : null
+    return (separator ? parsed.split(separator) : [parsed]).map((x) => x.trim()).filter(Boolean)
+  }
   return []
 }
 
-const asObject = (v) => {
-  const value = parseMaybeJson(v, {})
-  return value && typeof value === 'object' && !Array.isArray(value) ? value : {}
+function familyFriendlyValue(value) {
+  const parsed = parseMaybeJson(value)
+  if (typeof parsed === 'boolean') return { value: parsed, reason: '' }
+  if (typeof parsed === 'string') {
+    const lower = parsed.trim().toLowerCase()
+    if (['true', 'ja', 'yes'].includes(lower)) return { value: true, reason: '' }
+    if (['false', 'nein', 'no'].includes(lower)) return { value: false, reason: '' }
+    return { value: null, reason: parsed }
+  }
+  if (parsed && typeof parsed === 'object') {
+    const rawValue = parsed.value ?? parsed.is_family_friendly ?? parsed.family_friendly
+    let boolValue = null
+    if (typeof rawValue === 'boolean') boolValue = rawValue
+    if (typeof rawValue === 'string') {
+      const lower = rawValue.trim().toLowerCase()
+      if (['true', 'ja', 'yes'].includes(lower)) boolValue = true
+      if (['false', 'nein', 'no'].includes(lower)) boolValue = false
+    }
+    return { value: boolValue, reason: parsed.reason || parsed.begruendung || parsed.explanation || '' }
+  }
+  return { value: null, reason: '' }
 }
 
 function Section({ id = null, title, children }) {
@@ -165,10 +194,10 @@ export default function POIDetailClient({ slug }) {
   if (poi === undefined) return <main className="container"><p>Lädt ...</p></main>
   if (poi === null) return <main className="container"><div className="error-box">POI nicht gefunden.</div></main>
 
-  const highlights = asList(editorial?.highlights_json)
-  const niceToKnow = asList(editorial?.nice_to_know_json)
-  const tags = asList(editorial?.suggested_tags_json)
-  const familyFriendly = asObject(editorial?.family_friendly_json)
+  const highlights = asList(editorial?.highlights_json ?? editorial?.highlights)
+  const niceToKnow = asList(editorial?.nice_to_know_json ?? editorial?.nice_to_know)
+  const tags = asList(editorial?.suggested_tags_json ?? editorial?.suggested_tags ?? editorial?.tags)
+  const familyFriendly = familyFriendlyValue(editorial?.family_friendly_json)
   const afterDescription = affiliateBlocks.filter((x) => x.placement === 'after_description')
   const afterVisitInfo = affiliateBlocks.filter((x) => x.placement === 'after_visit_info')
   const hasEditorial =

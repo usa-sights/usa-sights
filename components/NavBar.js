@@ -42,46 +42,69 @@ function MapNavToggle({ vertical = false }) {
   )
 }
 
-function PublicRankingToggle({ vertical = false, initialValue = false, onChanged }) {
-  const [enabled, setEnabled] = useState(initialValue)
+function RankingVisibilityToggle({ vertical = false }) {
+  const [visible, setVisible] = useState(null)
   const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
 
-  useEffect(() => {
-    setEnabled(initialValue === true)
-  }, [initialValue])
-
-  async function toggle() {
-    if (saving) return
-    const nextValue = !enabled
-    setSaving(true)
-    setEnabled(nextValue)
-
-    const result = await authFetchJson('/api/admin/app-settings', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ publicRankingVisible: nextValue }),
-      cache: 'no-store',
-    }).catch((error) => ({ error: error.message }))
-
-    if (result.error) {
-      setEnabled(!nextValue)
-      window.alert(result.error || 'Ranking-Einstellung konnte nicht gespeichert werden.')
-      setSaving(false)
+  async function load() {
+    const data = await authFetchJson('/api/admin/app-settings', { cache: 'no-store' }).catch((e) => ({ error: e.message }))
+    if (data.error) {
+      setError(data.error)
+      setVisible(false)
       return
     }
-
-    const persisted = result.publicRankingVisible === true
-    setEnabled(persisted)
-    onChanged?.(persisted)
-    window.dispatchEvent(new Event('app-settings-changed'))
-    window.dispatchEvent(new Event('app-data-changed'))
-    setSaving(false)
+    setError(data.missingTable ? 'app_settings fehlt' : '')
+    setVisible(data.publicRankingVisible === true)
   }
 
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    load()
+    const onSettingsChanged = () => load()
+    window.addEventListener('app-settings-changed', onSettingsChanged)
+    return () => window.removeEventListener('app-settings-changed', onSettingsChanged)
+  }, [])
+
+  async function toggle() {
+    if (saving || visible === null) return
+    const nextVisible = !visible
+    setSaving(true)
+    setError('')
+    try {
+      const data = await authFetchJson('/api/admin/app-settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ publicRankingVisible: nextVisible }),
+        cache: 'no-store',
+      })
+      if (data.error) throw new Error(data.error)
+      if (data.ok === false || data.publicRankingVisible !== nextVisible) {
+        throw new Error('Ranking-Einstellung wurde nicht gespeichert.')
+      }
+      setVisible(data.publicRankingVisible === true)
+      window.dispatchEvent(new Event('app-settings-changed'))
+      window.dispatchEvent(new Event('app-data-changed'))
+    } catch (e) {
+      setError(e.message || 'Ranking-Einstellung konnte nicht gespeichert werden.')
+      await load()
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const label = visible === null
+    ? 'Ranking lädt ...'
+    : saving
+      ? 'Ranking speichert ...'
+      : visible
+        ? 'Ranking an'
+        : 'Ranking aus'
+
   return (
-    <button type="button" className={vertical ? 'admin-rail-link admin-toggle-btn' : 'nav-link-button admin-toggle-btn'} onClick={toggle} disabled={saving} title="Steuert, ob der öffentliche Ranking-Menüpunkt angezeigt wird.">
+    <button type="button" className={vertical ? 'admin-rail-link admin-toggle-btn' : 'nav-link-button admin-toggle-btn'} onClick={toggle} title={error || 'Steuert, ob der Ranking-Menüpunkt im öffentlichen Menü sichtbar ist.'} disabled={saving || visible === null}>
       <Trophy size={18} />
-      <span>{saving ? 'Ranking speichert ...' : (enabled ? 'Ranking an' : 'Ranking aus')}</span>
+      <span>{label}</span>
     </button>
   )
 }
@@ -249,7 +272,7 @@ export default function NavBar() {
                       <MenuLink href="/admin/change-requests" icon={PencilLine} onClick={() => setOpen(false)}>Änderungen</MenuLink>
                       <MenuLink href="/admin/affiliate-providers" icon={Tags} onClick={() => setOpen(false)}>Affiliates</MenuLink>
                       <MapNavToggle />
-                      <PublicRankingToggle initialValue={publicRankingVisible} onChanged={setPublicRankingVisible} />
+                      <RankingVisibilityToggle />
                     </>
                   ) : (
                     <MenuLink href="/account" icon={LayoutDashboard} onClick={() => setOpen(false)}>Dashboard</MenuLink>
@@ -282,7 +305,7 @@ export default function NavBar() {
             <MenuLink href="/admin/change-requests" icon={PencilLine} vertical>Änderungen</MenuLink>
             <MenuLink href="/admin/affiliate-providers" icon={Tags} vertical>Affiliates</MenuLink>
             <MapNavToggle vertical />
-            <PublicRankingToggle vertical initialValue={publicRankingVisible} onChanged={setPublicRankingVisible} />
+            <RankingVisibilityToggle vertical />
           </div>
         </aside>
       ) : null}

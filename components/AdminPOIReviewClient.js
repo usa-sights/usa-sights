@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useState } from 'react'
+import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import AdminPOIAffiliateManager from '@/components/AdminPOIAffiliateManager'
 import ExternalLinksEditor from '@/components/ExternalLinksEditor'
@@ -8,34 +9,72 @@ import UserPOIImageUploader from '@/components/UserPOIImageUploader'
 import AdminPOIMapEditor from '@/components/AdminPOIMapEditor'
 import { authFetchJson } from '@/utils/authFetch'
 
-function parseMaybeJson(value, fallback) {
-  if (value == null || value === '') return fallback
+function parseMaybeJson(value) {
   if (typeof value !== 'string') return value
+  const trimmed = value.trim()
+  if (!trimmed) return ''
+  if (!['[', '{', '"'].includes(trimmed[0]) && trimmed !== 'true' && trimmed !== 'false') return value
   try {
-    return JSON.parse(value)
+    return JSON.parse(trimmed)
   } catch {
-    return fallback
+    return value
   }
 }
 
-function toList(value) {
-  const parsed = parseMaybeJson(value, value)
-  if (Array.isArray(parsed)) return parsed.map((x) => String(x || '').trim()).filter(Boolean)
-  if (typeof parsed === 'string') return parsed.split(/\r?\n|\s*\|\s*/).map((x) => x.trim()).filter(Boolean)
+function normalizeList(value) {
+  const parsed = parseMaybeJson(value)
+  if (Array.isArray(parsed)) return parsed.map((item) => typeof item === 'string' ? item : String(item?.label || item?.title || item?.name || item?.text || '')).map((x) => x.trim()).filter(Boolean)
+  if (parsed && typeof parsed === 'object') {
+    if (Array.isArray(parsed.items)) return normalizeList(parsed.items)
+    if (Array.isArray(parsed.value)) return normalizeList(parsed.value)
+    if (Array.isArray(parsed.list)) return normalizeList(parsed.list)
+    return Object.values(parsed).flatMap((item) => normalizeList(item)).filter(Boolean)
+  }
+  if (typeof parsed === 'string') {
+    const separator = parsed.includes('\n') ? /\r?\n/ : parsed.includes('|') ? /\|/ : parsed.includes(';') ? /;/ : null
+    return (separator ? parsed.split(separator) : [parsed]).map((x) => x.trim()).filter(Boolean)
+  }
   return []
 }
 
-function toObject(value) {
-  const parsed = parseMaybeJson(value, {})
-  return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {}
-}
-
 function joinLines(value) {
-  return toList(value).join('\n')
+  return normalizeList(value).join('\n')
 }
 
 function splitLines(value) {
-  return String(value || '').split('\n').map((x) => x.trim()).filter(Boolean)
+  return normalizeList(value)
+}
+
+function normalizeFamilyFriendly(value) {
+  const parsed = parseMaybeJson(value)
+  if (typeof parsed === 'boolean') return { value: parsed, reason: '' }
+  if (typeof parsed === 'string') {
+    const lower = parsed.trim().toLowerCase()
+    if (['true', 'ja', 'yes'].includes(lower)) return { value: true, reason: '' }
+    if (['false', 'nein', 'no'].includes(lower)) return { value: false, reason: '' }
+    return { value: null, reason: parsed }
+  }
+  if (parsed && typeof parsed === 'object') {
+    const rawValue = parsed.value ?? parsed.is_family_friendly ?? parsed.family_friendly
+    let boolValue = null
+    if (typeof rawValue === 'boolean') boolValue = rawValue
+    if (typeof rawValue === 'string') {
+      const lower = rawValue.trim().toLowerCase()
+      if (['true', 'ja', 'yes'].includes(lower)) boolValue = true
+      if (['false', 'nein', 'no'].includes(lower)) boolValue = false
+    }
+    return { value: boolValue, reason: parsed.reason || parsed.begruendung || parsed.explanation || '' }
+  }
+  return { value: null, reason: '' }
+}
+
+function firstText(...values) {
+  for (const value of values) {
+    if (value === null || value === undefined) continue
+    const text = String(value)
+    if (text.trim()) return text
+  }
+  return ''
 }
 
 export default function AdminPOIReviewClient({ forcedPoiId = null }) {
@@ -66,22 +105,37 @@ export default function AdminPOIReviewClient({ forcedPoiId = null }) {
 
   function applyDetail(detailData, mediaData) {
     const item = detailData.item || {}
-    setSelected({
-      id:item.id, slug:item.slug || '', title:item.title || '', short_description:item.short_description || '', description:item.description || '', category_id:item.category_id || '', state:item.state || '', city:item.city || '', address:item.address || '', latitude:item.latitude ?? '', longitude:item.longitude ?? '', opening_hours_text:item.opening_hours_text || '', price_info_text:item.price_info_text || '', hotels_nearby_text:item.hotels_nearby_text || '', website_url:item.website_url || '', status:item.status || 'pending',
-    })
     const ed = detailData.editorial || {}
-    const familyFriendly = toObject(ed.family_friendly_json)
+    const familyFriendly = normalizeFamilyFriendly(ed.family_friendly_json)
+    setSelected({
+      id:item.id,
+      slug:firstText(item.slug),
+      title:firstText(item.title),
+      short_description:firstText(item.short_description, item.summary, item.excerpt),
+      description:firstText(item.description, item.long_description, item.body),
+      category_id:item.category_id || '',
+      state:firstText(item.state, item.region),
+      city:firstText(item.city, item.town, item.place),
+      address:firstText(item.address, item.street_address, item.location),
+      latitude:item.latitude ?? '',
+      longitude:item.longitude ?? '',
+      opening_hours_text:firstText(item.opening_hours_text, item.opening_hours),
+      price_info_text:firstText(item.price_info_text, item.price_info, item.prices),
+      hotels_nearby_text:firstText(item.hotels_nearby_text, item.hotels_nearby),
+      website_url:firstText(item.website_url, item.website),
+      status:item.status || 'pending',
+    })
     setEditorial({
-      highlights_text: joinLines(ed.highlights_json || []),
-      nice_to_know_text: joinLines(ed.nice_to_know_json || []),
-      visit_duration_text: ed.visit_duration_text || '',
-      best_time_to_visit_text: ed.best_time_to_visit_text || '',
+      highlights_text: joinLines(ed.highlights_json ?? ed.highlights),
+      nice_to_know_text: joinLines(ed.nice_to_know_json ?? ed.nice_to_know),
+      visit_duration_text: firstText(ed.visit_duration_text, ed.visit_duration),
+      best_time_to_visit_text: firstText(ed.best_time_to_visit_text, ed.best_time_to_visit),
       family_friendly_value: typeof familyFriendly.value === 'boolean' ? String(familyFriendly.value) : '',
-      family_friendly_reason: familyFriendly.reason || '',
-      suggested_tags_text: joinLines(ed.suggested_tags_json || []),
-      seo_title: ed.seo_title || '',
-      seo_description: ed.seo_description || '',
-      editorial_review_notes_text: joinLines(ed.editorial_review_notes_json || []),
+      family_friendly_reason: firstText(familyFriendly.reason),
+      suggested_tags_text: joinLines(ed.suggested_tags_json ?? ed.suggested_tags ?? ed.tags),
+      seo_title: firstText(ed.seo_title),
+      seo_description: firstText(ed.seo_description),
+      editorial_review_notes_text: joinLines(ed.editorial_review_notes_json ?? ed.editorial_review_notes),
     })
     setAffiliateItems(detailData.affiliate_settings || [])
     const nextMedia = (detailData.images && detailData.images.length ? detailData.images : mediaData.items) || []
@@ -196,8 +250,8 @@ export default function AdminPOIReviewClient({ forcedPoiId = null }) {
     if (!data.error) setMedia((prev) => prev.map((m) => m.id === id ? { ...m, status } : m))
   }
 
-  if (!queryPoiId) return <main className="container admin-editor-container"><div className="notice">Kein POI ausgewählt. Bitte öffne die Bearbeitung über „Admin / Alle POIs“.</div></main>
+  if (!queryPoiId) return <main className="container admin-editor-container"><h1>Admin / POI bearbeiten</h1><div className="card"><p className="muted">Kein POI ausgewählt.</p><Link className="btn btn-secondary" href="/admin/pois">Zur POI-Liste</Link></div></main>
   if (!selected) return <main className="container admin-editor-container"><p>POI wird geladen ...</p></main>
 
-  return <main className="container admin-editor-container"><h1>Admin / POI bearbeiten</h1>{message ? <div className="notice">{message}</div> : null}<div className="card admin-editor-wide"><h2>{selected.title}</h2><p className="muted">Status: {selected.status}</p><div style={{ display:'flex', gap:8, flexWrap:'wrap', marginBottom:12 }}><button type="button" className="btn btn-secondary" onClick={generateAI} disabled={saving}>KI Vorschlag</button><button type="button" className="btn btn-secondary" onClick={reverseGeocodeFill} disabled={saving}>Adresse automatisch füllen</button></div><div className="grid grid-2"><div><label className="label">Titel</label><input className="input" value={selected.title || ''} onChange={(e) => setSelected({ ...selected, title:e.target.value })} /></div><div><label className="label">Kategorie</label><select className="select" value={selected.category_id || ''} onChange={(e) => setSelected({ ...selected, category_id:e.target.value })}><option value="">Bitte wählen</option>{categories.map((cat) => <option key={cat.id} value={cat.id}>{cat.name}</option>)}</select></div></div><div className="grid grid-2"><div><label className="label">Status</label><select className="select" value={selected.status || 'pending'} onChange={(e) => setSelected({ ...selected, status:e.target.value })}><option value="pending">pending</option><option value="published">published</option><option value="rejected">rejected</option></select></div><div><label className="label">Slug</label><input className="input" value={selected.slug || ''} onChange={(e) => setSelected({ ...selected, slug:e.target.value })} /></div></div><div className="inline-3"><div><label className="label">Bundesstaat</label><input className="input" value={selected.state || ''} onChange={(e) => setSelected({ ...selected, state:e.target.value })} /></div><div><label className="label">Stadt</label><input className="input" value={selected.city || ''} onChange={(e) => setSelected({ ...selected, city:e.target.value })} /></div><div><label className="label">Adresse</label><input className="input" value={selected.address || ''} onChange={(e) => setSelected({ ...selected, address:e.target.value })} /></div></div><div className="grid grid-2"><div><label className="label">Latitude</label><input className="input" value={selected.latitude || ''} onChange={(e) => setSelected({ ...selected, latitude:e.target.value })} /></div><div><label className="label">Longitude</label><input className="input" value={selected.longitude || ''} onChange={(e) => setSelected({ ...selected, longitude:e.target.value })} /></div></div><AdminPOIMapEditor mapKey={mapKey} latitude={selected.latitude} longitude={selected.longitude} onChange={({ latitude, longitude }) => setSelected((prev) => ({ ...prev, latitude, longitude }))} /><label className="label">Kurzbeschreibung</label><textarea className="textarea" rows="3" value={selected.short_description || ''} onChange={(e) => setSelected({ ...selected, short_description:e.target.value })} /><label className="label">Beschreibung</label><textarea className="textarea" rows="5" value={selected.description || ''} onChange={(e) => setSelected({ ...selected, description:e.target.value })} /><div className="grid grid-2"><div><label className="label">Öffnungszeiten</label><textarea className="textarea" rows="3" value={selected.opening_hours_text || ''} onChange={(e) => setSelected({ ...selected, opening_hours_text:e.target.value })} /></div><div><label className="label">Preise</label><textarea className="textarea" rows="3" value={selected.price_info_text || ''} onChange={(e) => setSelected({ ...selected, price_info_text:e.target.value })} /></div></div><label className="label">Hotels in der Nähe</label><textarea className="textarea" rows="3" value={selected.hotels_nearby_text || ''} onChange={(e) => setSelected({ ...selected, hotels_nearby_text:e.target.value })} /><label className="label">Website</label><input className="input" value={selected.website_url || ''} onChange={(e) => setSelected({ ...selected, website_url:e.target.value })} /><h3>Redaktionelle Inhalte</h3><label className="label">Highlights (eine Zeile pro Eintrag)</label><textarea className="textarea" rows="5" value={editorial.highlights_text} onChange={(e) => setEditorial({ ...editorial, highlights_text:e.target.value })} /><label className="label">Nice to know (eine Zeile pro Eintrag)</label><textarea className="textarea" rows="5" value={editorial.nice_to_know_text} onChange={(e) => setEditorial({ ...editorial, nice_to_know_text:e.target.value })} /><div className="grid grid-2"><div><label className="label">Empfohlene Besuchsdauer</label><input className="input" value={editorial.visit_duration_text} onChange={(e) => setEditorial({ ...editorial, visit_duration_text:e.target.value })} /></div><div><label className="label">Beste Besuchszeit</label><input className="input" value={editorial.best_time_to_visit_text} onChange={(e) => setEditorial({ ...editorial, best_time_to_visit_text:e.target.value })} /></div></div><div className="grid grid-2"><div><label className="label">Familienfreundlich</label><select className="select" value={editorial.family_friendly_value} onChange={(e) => setEditorial({ ...editorial, family_friendly_value:e.target.value })}><option value="">offen</option><option value="true">ja</option><option value="false">nein</option></select></div><div><label className="label">Begründung Familienfreundlich</label><input className="input" value={editorial.family_friendly_reason} onChange={(e) => setEditorial({ ...editorial, family_friendly_reason:e.target.value })} /></div></div><label className="label">Tags (eine Zeile pro Eintrag)</label><textarea className="textarea" rows="4" value={editorial.suggested_tags_text} onChange={(e) => setEditorial({ ...editorial, suggested_tags_text:e.target.value })} /><label className="label">SEO Title</label><input className="input" value={editorial.seo_title} onChange={(e) => setEditorial({ ...editorial, seo_title:e.target.value })} /><label className="label">SEO Description</label><textarea className="textarea" rows="3" value={editorial.seo_description} onChange={(e) => setEditorial({ ...editorial, seo_description:e.target.value })} /><div className="grid grid-2 admin-subgrid" style={{ marginTop:16 }}><div><ExternalLinksEditor poiId={selected.id} isAdmin={true} allowCreate={true} /></div><div><UserPOIImageUploader poiId={selected.id} userId={currentUserId} isAdmin={true} title="Fotos als Admin hinzufügen" /></div></div>{media.length ? <><div className="admin-poi-media-head"><div><h3 style={{ marginBottom: 4 }}>Medien</h3><p className="muted">{filteredMedia.length} von {media.length} Bildern sichtbar. So bleibt die Ansicht auch bei sehr vielen Dateien schnell.</p></div><div className="admin-poi-media-controls"><select className="select" value={mediaStatusFilter} onChange={(e) => { setMediaStatusFilter(e.target.value); setVisibleMediaCount(60) }}><option value="all">Alle Status</option><option value="approved">Freigegeben</option><option value="pending">Pending</option><option value="rejected">Abgelehnt</option></select><button type="button" className="btn btn-secondary" onClick={() => setVisibleMediaCount((prev) => prev + 60)} disabled={visibleMediaCount >= filteredMedia.length}>Mehr laden</button></div></div><div className="admin-poi-media-layout"><div className="admin-poi-media-grid">{visibleMedia.map((img) => <button key={img.id} type="button" className={`admin-poi-media-tile ${activeMedia?.id === img.id ? 'is-active' : ''}`} onClick={() => setActiveMediaId(img.id)}><div className="admin-poi-media-thumb">{(img.thumb_url || mediaUrls[img.path]) ? <img src={img.thumb_url || mediaUrls[img.path]} alt={img.caption || selected.title} loading="lazy" /> : <div className="muted">Kein Bildlink</div>}</div><div className="admin-poi-media-meta"><strong>{img.caption || 'Ohne Bildtext'}</strong><span className="muted">{img.status}</span></div></button>)}</div><aside className="card admin-poi-media-preview">{activeMedia ? <><div className="admin-poi-media-preview-image">{(activeMedia.thumb_url || mediaUrls[activeMedia.path]) ? <img src={activeMedia.thumb_url || mediaUrls[activeMedia.path]} alt={activeMedia.caption || selected.title} /> : <div className="muted">Kein Bildlink</div>}</div><div className="admin-poi-media-preview-body"><strong>{activeMedia.caption || selected.title}</strong><p className="muted">Status: {activeMedia.status}</p><div style={{ display:'flex', gap:8, flexWrap:'wrap' }}><button type="button" className="btn btn-secondary" onClick={() => setMediaStatus(activeMedia.id, 'approved')}>Freigeben</button><button type="button" className="btn btn-danger" onClick={() => setMediaStatus(activeMedia.id, 'rejected')}>Ablehnen</button></div></div></> : <p className="muted">Bitte ein Bild auswählen.</p>}</aside></div></> : null}<AdminPOIAffiliateManager poi={selected} value={affiliateItems} onChange={setAffiliateItems} /><div style={{ display:'flex', gap:8, flexWrap:'wrap', marginTop:16 }}><button type="button" className="btn btn-secondary" onClick={() => save(null)} disabled={saving}>{saving ? 'Speichert ...' : 'Speichern'}</button><button type="button" className="btn" onClick={() => save('published')} disabled={saving}>{saving ? 'Speichert ...' : 'Speichern & Freigeben'}</button></div></div></main>
+  return <main className="container admin-editor-container"><h1>Admin / POI bearbeiten</h1>{message ? <div className="notice">{message}</div> : null}<div className="card admin-editor-wide"><h2>{selected.title}</h2><p className="muted">Status: {selected.status}</p><div style={{ display:'flex', gap:8, flexWrap:'wrap', marginBottom:12 }}><button type="button" className="btn btn-secondary" onClick={generateAI} disabled={saving}>KI Vorschlag</button><button type="button" className="btn btn-secondary" onClick={reverseGeocodeFill} disabled={saving}>Adresse automatisch füllen</button>{selected.slug ? <Link className="btn btn-secondary" href={`/poi/${selected.slug}`} target="_blank" rel="noreferrer">Frontend ansehen</Link> : null}</div><div className="grid grid-2"><div><label className="label">Titel</label><input className="input" value={selected.title || ''} onChange={(e) => setSelected({ ...selected, title:e.target.value })} /></div><div><label className="label">Kategorie</label><select className="select" value={selected.category_id || ''} onChange={(e) => setSelected({ ...selected, category_id:e.target.value })}><option value="">Bitte wählen</option>{categories.map((cat) => <option key={cat.id} value={cat.id}>{cat.name}</option>)}</select></div></div><div className="grid grid-2"><div><label className="label">Status</label><select className="select" value={selected.status || 'pending'} onChange={(e) => setSelected({ ...selected, status:e.target.value })}><option value="pending">pending</option><option value="published">published</option><option value="rejected">rejected</option></select></div><div><label className="label">Slug</label><input className="input" value={selected.slug || ''} onChange={(e) => setSelected({ ...selected, slug:e.target.value })} /></div></div><div className="inline-3"><div><label className="label">Bundesstaat</label><input className="input" value={selected.state || ''} onChange={(e) => setSelected({ ...selected, state:e.target.value })} /></div><div><label className="label">Stadt</label><input className="input" value={selected.city || ''} onChange={(e) => setSelected({ ...selected, city:e.target.value })} /></div><div><label className="label">Adresse</label><input className="input" value={selected.address || ''} onChange={(e) => setSelected({ ...selected, address:e.target.value })} /></div></div><div className="grid grid-2"><div><label className="label">Latitude</label><input className="input" value={selected.latitude || ''} onChange={(e) => setSelected({ ...selected, latitude:e.target.value })} /></div><div><label className="label">Longitude</label><input className="input" value={selected.longitude || ''} onChange={(e) => setSelected({ ...selected, longitude:e.target.value })} /></div></div><AdminPOIMapEditor mapKey={mapKey} latitude={selected.latitude} longitude={selected.longitude} onChange={({ latitude, longitude }) => setSelected((prev) => ({ ...prev, latitude, longitude }))} /><label className="label">Kurzbeschreibung</label><textarea className="textarea" rows="3" value={selected.short_description || ''} onChange={(e) => setSelected({ ...selected, short_description:e.target.value })} /><label className="label">Beschreibung</label><textarea className="textarea" rows="5" value={selected.description || ''} onChange={(e) => setSelected({ ...selected, description:e.target.value })} /><div className="grid grid-2"><div><label className="label">Öffnungszeiten</label><textarea className="textarea" rows="3" value={selected.opening_hours_text || ''} onChange={(e) => setSelected({ ...selected, opening_hours_text:e.target.value })} /></div><div><label className="label">Preise</label><textarea className="textarea" rows="3" value={selected.price_info_text || ''} onChange={(e) => setSelected({ ...selected, price_info_text:e.target.value })} /></div></div><label className="label">Hotels in der Nähe</label><textarea className="textarea" rows="3" value={selected.hotels_nearby_text || ''} onChange={(e) => setSelected({ ...selected, hotels_nearby_text:e.target.value })} /><label className="label">Website</label><input className="input" value={selected.website_url || ''} onChange={(e) => setSelected({ ...selected, website_url:e.target.value })} /><h3>Redaktionelle Inhalte</h3><label className="label">Highlights (eine Zeile pro Eintrag)</label><textarea className="textarea" rows="5" value={editorial.highlights_text} onChange={(e) => setEditorial({ ...editorial, highlights_text:e.target.value })} /><label className="label">Nice to know (eine Zeile pro Eintrag)</label><textarea className="textarea" rows="5" value={editorial.nice_to_know_text} onChange={(e) => setEditorial({ ...editorial, nice_to_know_text:e.target.value })} /><div className="grid grid-2"><div><label className="label">Empfohlene Besuchsdauer</label><input className="input" value={editorial.visit_duration_text} onChange={(e) => setEditorial({ ...editorial, visit_duration_text:e.target.value })} /></div><div><label className="label">Beste Besuchszeit</label><input className="input" value={editorial.best_time_to_visit_text} onChange={(e) => setEditorial({ ...editorial, best_time_to_visit_text:e.target.value })} /></div></div><div className="grid grid-2"><div><label className="label">Familienfreundlich</label><select className="select" value={editorial.family_friendly_value} onChange={(e) => setEditorial({ ...editorial, family_friendly_value:e.target.value })}><option value="">offen</option><option value="true">ja</option><option value="false">nein</option></select></div><div><label className="label">Begründung Familienfreundlich</label><input className="input" value={editorial.family_friendly_reason} onChange={(e) => setEditorial({ ...editorial, family_friendly_reason:e.target.value })} /></div></div><label className="label">Tags (eine Zeile pro Eintrag)</label><textarea className="textarea" rows="4" value={editorial.suggested_tags_text} onChange={(e) => setEditorial({ ...editorial, suggested_tags_text:e.target.value })} /><label className="label">SEO Title</label><input className="input" value={editorial.seo_title} onChange={(e) => setEditorial({ ...editorial, seo_title:e.target.value })} /><label className="label">SEO Description</label><textarea className="textarea" rows="3" value={editorial.seo_description} onChange={(e) => setEditorial({ ...editorial, seo_description:e.target.value })} /><div className="grid grid-2 admin-subgrid" style={{ marginTop:16 }}><div><ExternalLinksEditor poiId={selected.id} isAdmin={true} allowCreate={true} /></div><div><UserPOIImageUploader poiId={selected.id} userId={currentUserId} isAdmin={true} title="Fotos als Admin hinzufügen" /></div></div>{media.length ? <><div className="admin-poi-media-head"><div><h3 style={{ marginBottom: 4 }}>Medien</h3><p className="muted">{filteredMedia.length} von {media.length} Bildern sichtbar. So bleibt die Ansicht auch bei sehr vielen Dateien schnell.</p></div><div className="admin-poi-media-controls"><select className="select" value={mediaStatusFilter} onChange={(e) => { setMediaStatusFilter(e.target.value); setVisibleMediaCount(60) }}><option value="all">Alle Status</option><option value="approved">Freigegeben</option><option value="pending">Pending</option><option value="rejected">Abgelehnt</option></select><button type="button" className="btn btn-secondary" onClick={() => setVisibleMediaCount((prev) => prev + 60)} disabled={visibleMediaCount >= filteredMedia.length}>Mehr laden</button></div></div><div className="admin-poi-media-layout"><div className="admin-poi-media-grid">{visibleMedia.map((img) => <button key={img.id} type="button" className={`admin-poi-media-tile ${activeMedia?.id === img.id ? 'is-active' : ''}`} onClick={() => setActiveMediaId(img.id)}><div className="admin-poi-media-thumb">{(img.thumb_url || mediaUrls[img.path]) ? <img src={img.thumb_url || mediaUrls[img.path]} alt={img.caption || selected.title} loading="lazy" /> : <div className="muted">Kein Bildlink</div>}</div><div className="admin-poi-media-meta"><strong>{img.caption || 'Ohne Bildtext'}</strong><span className="muted">{img.status}</span></div></button>)}</div><aside className="card admin-poi-media-preview">{activeMedia ? <><div className="admin-poi-media-preview-image">{(activeMedia.thumb_url || mediaUrls[activeMedia.path]) ? <img src={activeMedia.thumb_url || mediaUrls[activeMedia.path]} alt={activeMedia.caption || selected.title} /> : <div className="muted">Kein Bildlink</div>}</div><div className="admin-poi-media-preview-body"><strong>{activeMedia.caption || selected.title}</strong><p className="muted">Status: {activeMedia.status}</p><div style={{ display:'flex', gap:8, flexWrap:'wrap' }}><button type="button" className="btn btn-secondary" onClick={() => setMediaStatus(activeMedia.id, 'approved')}>Freigeben</button><button type="button" className="btn btn-danger" onClick={() => setMediaStatus(activeMedia.id, 'rejected')}>Ablehnen</button></div></div></> : <p className="muted">Bitte ein Bild auswählen.</p>}</aside></div></> : null}<AdminPOIAffiliateManager poi={selected} value={affiliateItems} onChange={setAffiliateItems} /><div style={{ display:'flex', gap:8, flexWrap:'wrap', marginTop:16 }}><button type="button" className="btn btn-secondary" onClick={() => save(null)} disabled={saving}>{saving ? 'Speichert ...' : 'Speichern'}</button><button type="button" className="btn" onClick={() => save('published')} disabled={saving}>{saving ? 'Speichert ...' : 'Speichern & Freigeben'}</button></div></div></main>
 }

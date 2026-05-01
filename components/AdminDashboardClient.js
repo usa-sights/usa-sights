@@ -138,7 +138,6 @@ export default function AdminDashboardClient() {
     <main className="container admin-editor-container">
       <h1>Admin-Dashboard</h1>
 
-
       <div className="metrics-grid">
         <MetricCard
           icon={MapPinned}
