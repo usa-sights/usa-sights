@@ -42,6 +42,58 @@ function MapNavToggle({ vertical = false }) {
   )
 }
 
+function PublicRankingToggle({ visible, onChange, vertical = false }) {
+  const [enabled, setEnabled] = useState(visible === true)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    setEnabled(visible === true)
+  }, [visible])
+
+  async function toggle() {
+    if (saving) return
+    const nextValue = !enabled
+    setSaving(true)
+    setError('')
+    setEnabled(nextValue)
+
+    try {
+      const result = await authFetchJson('/api/admin/app-settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ publicRankingVisible: nextValue }),
+        cache: 'no-store',
+      })
+      if (result.error) throw new Error(result.error)
+
+      const persistedValue = result.publicRankingVisible === true
+      setEnabled(persistedValue)
+      onChange?.(persistedValue)
+      window.dispatchEvent(new Event('app-settings-changed'))
+      window.dispatchEvent(new Event('app-data-changed'))
+    } catch (e) {
+      setEnabled(!nextValue)
+      setError(e.message || 'Ranking-Einstellung konnte nicht gespeichert werden.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <button
+      type="button"
+      className={vertical ? 'admin-rail-link admin-toggle-btn' : 'nav-link-button admin-toggle-btn'}
+      onClick={toggle}
+      disabled={saving}
+      title={error || 'Steuert, ob der öffentliche Ranking-Link in der Navigation angezeigt wird.'}
+    >
+      <Trophy size={18} />
+      <span>{saving ? 'Ranking speichert ...' : `Ranking ${enabled ? 'an' : 'aus'}`}</span>
+    </button>
+  )
+}
+
 export default function NavBar() {
   const supabase = useMemo(() => createBrowserSupabaseClient(), [])
   const [user, setUser] = useState(null)
@@ -205,6 +257,7 @@ export default function NavBar() {
                       <MenuLink href="/admin/change-requests" icon={PencilLine} onClick={() => setOpen(false)}>Änderungen</MenuLink>
                       <MenuLink href="/admin/affiliate-providers" icon={Tags} onClick={() => setOpen(false)}>Affiliates</MenuLink>
                       <MapNavToggle />
+                      <PublicRankingToggle visible={publicRankingVisible} onChange={setPublicRankingVisible} />
                     </>
                   ) : (
                     <MenuLink href="/account" icon={LayoutDashboard} onClick={() => setOpen(false)}>Dashboard</MenuLink>
@@ -237,6 +290,7 @@ export default function NavBar() {
             <MenuLink href="/admin/change-requests" icon={PencilLine} vertical>Änderungen</MenuLink>
             <MenuLink href="/admin/affiliate-providers" icon={Tags} vertical>Affiliates</MenuLink>
             <MapNavToggle vertical />
+            <PublicRankingToggle visible={publicRankingVisible} onChange={setPublicRankingVisible} vertical />
           </div>
         </aside>
       ) : null}

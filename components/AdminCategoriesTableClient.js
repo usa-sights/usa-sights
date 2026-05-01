@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { authFetch } from '@/utils/authFetch'
+import { authFetchJson } from '@/utils/authFetch'
 
 const emptyForm = { id: '', name: '', slug: '', description: '', sort_order: 0, is_active: true }
 
@@ -11,8 +11,7 @@ export default function AdminCategoriesTableClient() {
   const [form, setForm] = useState(emptyForm)
 
   async function load() {
-    const r = await authFetch('/api/admin/categories')
-    const d = await r.json()
+    const d = await authFetchJson('/api/admin/categories')
     if (d.error) return setMessage(d.error)
     setItems(d.items || [])
   }
@@ -22,12 +21,11 @@ export default function AdminCategoriesTableClient() {
   async function saveCategory(e) {
     e.preventDefault()
     const method = form.id ? 'PUT' : 'POST'
-    const r = await authFetch('/api/admin/categories', {
+    const d = await authFetchJson('/api/admin/categories', {
       method,
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ ...form, sort_order: Number(form.sort_order || 0) }),
     })
-    const d = await r.json()
     if (d.error) return setMessage(d.error)
     setMessage(form.id ? 'Kategorie gespeichert' : 'Kategorie angelegt')
     setForm(emptyForm)
@@ -36,8 +34,7 @@ export default function AdminCategoriesTableClient() {
 
   async function removeCategory(id) {
     if (!window.confirm('Kategorie wirklich löschen?')) return
-    const r = await authFetch(`/api/admin/categories?id=${id}`, { method: 'DELETE' })
-    const d = await r.json()
+    const d = await authFetchJson(`/api/admin/categories?id=${id}`, { method: 'DELETE' })
     if (d.error) return setMessage(d.error)
     setMessage('Kategorie gelöscht')
     load()

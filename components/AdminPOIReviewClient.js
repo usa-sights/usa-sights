@@ -8,8 +8,31 @@ import UserPOIImageUploader from '@/components/UserPOIImageUploader'
 import AdminPOIMapEditor from '@/components/AdminPOIMapEditor'
 import { authFetchJson } from '@/utils/authFetch'
 
+function parseMaybeJson(value) {
+  if (typeof value !== 'string') return value
+  const trimmed = value.trim()
+  if (!trimmed) return value
+  try {
+    return JSON.parse(trimmed)
+  } catch {
+    return value
+  }
+}
+
+function asArray(value) {
+  const parsed = parseMaybeJson(value)
+  if (Array.isArray(parsed)) return parsed.filter(Boolean)
+  if (typeof parsed === 'string') return parsed.split(/\r?\n/).map((x) => x.trim()).filter(Boolean)
+  return []
+}
+
+function asObject(value) {
+  const parsed = parseMaybeJson(value)
+  return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {}
+}
+
 function joinLines(value) {
-  return Array.isArray(value) ? value.join('\n') : ''
+  return asArray(value).join('\n')
 }
 
 function splitLines(value) {
@@ -49,16 +72,16 @@ export default function AdminPOIReviewClient({ forcedPoiId = null }) {
     })
     const ed = detailData.editorial || {}
     setEditorial({
-      highlights_text: joinLines(ed.highlights_json || []),
-      nice_to_know_text: joinLines(ed.nice_to_know_json || []),
+      highlights_text: joinLines(ed.highlights_json ?? ed.highlights ?? []),
+      nice_to_know_text: joinLines(ed.nice_to_know_json ?? ed.nice_to_know ?? []),
       visit_duration_text: ed.visit_duration_text || '',
       best_time_to_visit_text: ed.best_time_to_visit_text || '',
-      family_friendly_value: typeof ed.family_friendly_json?.value === 'boolean' ? String(ed.family_friendly_json.value) : '',
-      family_friendly_reason: ed.family_friendly_json?.reason || '',
-      suggested_tags_text: joinLines(ed.suggested_tags_json || []),
+      family_friendly_value: typeof asObject(ed.family_friendly_json).value === 'boolean' ? String(asObject(ed.family_friendly_json).value) : '',
+      family_friendly_reason: asObject(ed.family_friendly_json).reason || '',
+      suggested_tags_text: joinLines(ed.suggested_tags_json ?? ed.suggested_tags ?? []),
       seo_title: ed.seo_title || '',
       seo_description: ed.seo_description || '',
-      editorial_review_notes_text: joinLines(ed.editorial_review_notes_json || []),
+      editorial_review_notes_text: joinLines(ed.editorial_review_notes_json ?? ed.editorial_review_notes ?? []),
     })
     setAffiliateItems(detailData.affiliate_settings || [])
     const nextMedia = (detailData.images && detailData.images.length ? detailData.images : mediaData.items) || []

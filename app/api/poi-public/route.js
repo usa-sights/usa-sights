@@ -3,6 +3,41 @@ import { deriveThumbPath } from '@/lib/imageUpload'
 
 export const dynamic = 'force-dynamic'
 
+function parseMaybeJson(value) {
+  if (typeof value !== 'string') return value
+  const trimmed = value.trim()
+  if (!trimmed) return value
+  try {
+    return JSON.parse(trimmed)
+  } catch {
+    return value
+  }
+}
+
+function normalizeJsonArray(value) {
+  const parsed = parseMaybeJson(value)
+  if (Array.isArray(parsed)) return parsed.filter(Boolean)
+  if (typeof parsed === 'string') return parsed.split(/\r?\n/).map((x) => x.trim()).filter(Boolean)
+  return []
+}
+
+function normalizeJsonObject(value) {
+  const parsed = parseMaybeJson(value)
+  return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {}
+}
+
+function normalizeEditorial(row) {
+  if (!row) return null
+  return {
+    ...row,
+    highlights_json: normalizeJsonArray(row.highlights_json ?? row.highlights),
+    nice_to_know_json: normalizeJsonArray(row.nice_to_know_json ?? row.nice_to_know),
+    family_friendly_json: normalizeJsonObject(row.family_friendly_json),
+    suggested_tags_json: normalizeJsonArray(row.suggested_tags_json ?? row.suggested_tags),
+    editorial_review_notes_json: normalizeJsonArray(row.editorial_review_notes_json ?? row.editorial_review_notes),
+  }
+}
+
 export async function GET(req) {
   const admin = createSupabaseAdminClient()
   const { searchParams } = new URL(req.url)
@@ -43,6 +78,10 @@ export async function GET(req) {
     profileMap = Object.fromEntries((profileRes.data || []).map((p) => [p.id, p.name || p.id]))
   }
 
+  if (editorialResult.error) {
+    return Response.json({ error: editorialResult.error.message }, { status: 500 })
+  }
+
   const providerMap = Object.fromEntries((providersResult.data || []).map((x) => [x.provider_key, x]))
   const affiliates = (affiliateSettingsResult.data || [])
     .filter((x) => providerMap[x.provider_key]?.is_global_enabled !== false)
@@ -59,7 +98,7 @@ export async function GET(req) {
 
   return Response.json({
     item: poi,
-    editorial: editorialResult.data || null,
+    editorial: normalizeEditorial(editorialResult.data),
     links: linksResult.data || [],
     affiliates,
     images: images.map((img) => ({

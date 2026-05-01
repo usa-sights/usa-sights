@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { authFetch } from '@/utils/authFetch'
+import { authFetchJson } from '@/utils/authFetch'
 import { Activity, Heart, Image as ImageIcon, Link2, MapPinned, MessageCircle, Reply, ShieldAlert, Star, Users } from 'lucide-react'
 
 function MetricCard({ icon: Icon, title, total, totalInfo, items = [] }) {
@@ -85,19 +85,13 @@ export default function AdminDashboardClient() {
   const [data, setData] = useState(null)
   const [error, setError] = useState('')
   const [refreshTick, setRefreshTick] = useState(0)
-  const [publicRankingVisible, setPublicRankingVisible] = useState(false)
-  const [settingsMissing, setSettingsMissing] = useState(false)
-  const [settingsSaving, setSettingsSaving] = useState(false)
 
   useEffect(() => {
     let active = true
 
     async function load() {
       try {
-        const [dashboardRes, settingsRes] = await Promise.all([
-          authFetch('/api/admin/dashboard', { cache: 'no-store' }).then((r) => r.json()),
-          authFetch('/api/admin/app-settings', { cache: 'no-store' }).then((r) => r.json()).catch(() => ({ publicRankingVisible: false, missingTable: true })),
-        ])
+        const dashboardRes = await authFetchJson('/api/admin/dashboard', { cache: 'no-store' })
         if (!active) return
         if (dashboardRes.error) {
           setError(dashboardRes.error)
@@ -105,8 +99,6 @@ export default function AdminDashboardClient() {
         }
         setError('')
         setData(dashboardRes)
-        setPublicRankingVisible(settingsRes.publicRankingVisible === true)
-        setSettingsMissing(settingsRes.missingTable === true)
       } catch (e) {
         if (active) setError(e.message)
       }
@@ -140,43 +132,11 @@ export default function AdminDashboardClient() {
   if (error) return <main className="container"><div className="error-box">{error}</div></main>
   if (!data) return <main className="container"><p>Lädt ...</p></main>
 
-  async function togglePublicRanking() {
-    setSettingsSaving(true)
-    try {
-      const response = await authFetch('/api/admin/app-settings', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ publicRankingVisible: !publicRankingVisible }),
-      })
-      const next = await response.json()
-      if (next.error) throw new Error(next.error)
-      setPublicRankingVisible(next.publicRankingVisible === true)
-      window.dispatchEvent(new Event('app-settings-changed'))
-    } catch (e) {
-      setError(e.message)
-    } finally {
-      setSettingsSaving(false)
-    }
-  }
-
   const { kpis, moderationItems, activityFeed, quality } = data
 
   return (
     <main className="container admin-editor-container">
       <h1>Admin-Dashboard</h1>
-
-      <div className="card" style={{ marginBottom: 16 }}>
-        <div style={{ display:'flex', justifyContent:'space-between', gap:12, flexWrap:'wrap', alignItems:'center' }}>
-          <div>
-            <h2 style={{ margin:'0 0 4px' }}>Öffentliches Ranking</h2>
-            <p className="muted" style={{ margin:0 }}>Das Ranking-Menü wird nur angezeigt, wenn du es hier freischaltest.</p>
-            {settingsMissing ? <p className="muted" style={{ margin:'6px 0 0' }}>Hinweis: Für diese Einstellung wird eine Tabelle <code>app_settings</code> benötigt.</p> : null}
-          </div>
-          <button type="button" className={`btn ${publicRankingVisible ? '' : 'btn-secondary'}`} onClick={togglePublicRanking} disabled={settingsSaving}>
-            {publicRankingVisible ? 'Ranking ist sichtbar' : 'Ranking freischalten'}
-          </button>
-        </div>
-      </div>
 
       <div className="metrics-grid">
         <MetricCard

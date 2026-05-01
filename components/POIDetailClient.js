@@ -10,7 +10,29 @@ import UserPOIImageUploader from '@/components/UserPOIImageUploader'
 import { buildSmartAffiliateCards } from '@/lib/affiliateSmart'
 
 const hasContent = (v) => typeof v === 'string' ? v.trim().length > 0 : !!v
-const asList = (v) => Array.isArray(v) ? v.filter(Boolean) : []
+
+function parseMaybeJson(value) {
+  if (typeof value !== 'string') return value
+  const trimmed = value.trim()
+  if (!trimmed) return value
+  try {
+    return JSON.parse(trimmed)
+  } catch {
+    return value
+  }
+}
+
+const asList = (value) => {
+  const parsed = parseMaybeJson(value)
+  if (Array.isArray(parsed)) return parsed.filter(Boolean)
+  if (typeof parsed === 'string') return parsed.split(/\r?\n/).map((x) => x.trim()).filter(Boolean)
+  return []
+}
+
+const asObject = (value) => {
+  const parsed = parseMaybeJson(value)
+  return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {}
+}
 
 function Section({ id = null, title, children }) {
   return <div id={id || undefined} className="card" style={{ marginTop: 16 }}><h2>{title}</h2>{children}</div>
@@ -144,9 +166,10 @@ export default function POIDetailClient({ slug }) {
   if (poi === undefined) return <main className="container"><p>Lädt ...</p></main>
   if (poi === null) return <main className="container"><div className="error-box">POI nicht gefunden.</div></main>
 
-  const highlights = asList(editorial?.highlights_json)
-  const niceToKnow = asList(editorial?.nice_to_know_json)
-  const tags = asList(editorial?.suggested_tags_json)
+  const highlights = asList(editorial?.highlights_json ?? editorial?.highlights)
+  const niceToKnow = asList(editorial?.nice_to_know_json ?? editorial?.nice_to_know)
+  const tags = asList(editorial?.suggested_tags_json ?? editorial?.suggested_tags)
+  const familyFriendly = asObject(editorial?.family_friendly_json)
   const afterDescription = affiliateBlocks.filter((x) => x.placement === 'after_description')
   const afterVisitInfo = affiliateBlocks.filter((x) => x.placement === 'after_visit_info')
   const hasEditorial =
@@ -154,8 +177,8 @@ export default function POIDetailClient({ slug }) {
     niceToKnow.length ||
     hasContent(editorial?.visit_duration_text) ||
     hasContent(editorial?.best_time_to_visit_text) ||
-    typeof editorial?.family_friendly_json?.value === 'boolean' ||
-    hasContent(editorial?.family_friendly_json?.reason) ||
+    typeof familyFriendly.value === 'boolean' ||
+    hasContent(familyFriendly.reason) ||
     tags.length
 
   return (
@@ -190,8 +213,8 @@ export default function POIDetailClient({ slug }) {
               {niceToKnow.length ? <><h3>Nice to know</h3><ul>{niceToKnow.map((x, i) => <li key={i}>{x}</li>)}</ul></> : null}
               {hasContent(editorial?.visit_duration_text) ? <p><strong>Empfohlene Besuchsdauer:</strong> {editorial.visit_duration_text}</p> : null}
               {hasContent(editorial?.best_time_to_visit_text) ? <p><strong>Beste Besuchszeit:</strong> {editorial.best_time_to_visit_text}</p> : null}
-              {typeof editorial?.family_friendly_json?.value === 'boolean' ? <p><strong>Familienfreundlich:</strong> {editorial.family_friendly_json.value ? 'Ja' : 'Nein'}</p> : null}
-              {hasContent(editorial?.family_friendly_json?.reason) ? <p><strong>Begründung Familienfreundlich:</strong> {editorial.family_friendly_json.reason}</p> : null}
+              {typeof familyFriendly.value === 'boolean' ? <p><strong>Familienfreundlich:</strong> {familyFriendly.value ? 'Ja' : 'Nein'}</p> : null}
+              {hasContent(familyFriendly.reason) ? <p><strong>Begründung Familienfreundlich:</strong> {familyFriendly.reason}</p> : null}
               {tags.length ? <><h3>Tags</h3><div>{tags.map((tag, i) => <span key={i} className="badge">{tag}</span>)}</div></> : null}
             </>
           ) : (

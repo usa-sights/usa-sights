@@ -3,6 +3,41 @@ import { deriveThumbPath } from '@/lib/imageUpload'
 
 export const dynamic = 'force-dynamic'
 
+function parseMaybeJson(value) {
+  if (typeof value !== 'string') return value
+  const trimmed = value.trim()
+  if (!trimmed) return value
+  try {
+    return JSON.parse(trimmed)
+  } catch {
+    return value
+  }
+}
+
+function normalizeJsonArray(value) {
+  const parsed = parseMaybeJson(value)
+  if (Array.isArray(parsed)) return parsed.filter(Boolean)
+  if (typeof parsed === 'string') return parsed.split(/\r?\n/).map((x) => x.trim()).filter(Boolean)
+  return []
+}
+
+function normalizeJsonObject(value) {
+  const parsed = parseMaybeJson(value)
+  return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {}
+}
+
+function normalizeEditorial(row) {
+  if (!row) return null
+  return {
+    ...row,
+    highlights_json: normalizeJsonArray(row.highlights_json ?? row.highlights),
+    nice_to_know_json: normalizeJsonArray(row.nice_to_know_json ?? row.nice_to_know),
+    family_friendly_json: normalizeJsonObject(row.family_friendly_json),
+    suggested_tags_json: normalizeJsonArray(row.suggested_tags_json ?? row.suggested_tags),
+    editorial_review_notes_json: normalizeJsonArray(row.editorial_review_notes_json ?? row.editorial_review_notes),
+  }
+}
+
 export async function GET(req, { params }) {
   const auth = await requireAdminRoute(req)
   if (!auth.ok) return Response.json({ error: auth.error }, { status: auth.status })
@@ -16,6 +51,7 @@ export async function GET(req, { params }) {
     admin.from('poi_images').select('*').eq('poi_id', id).order('is_cover', { ascending: false }).order('is_gallery_pick', { ascending: false }).order('sort_order', { ascending: true }).order('created_at', { ascending: false }),
   ])
   if (poiRes.error) return Response.json({ error: poiRes.error.message }, { status: 500 })
+  if (editorialRes.error) return Response.json({ error: editorialRes.error.message }, { status: 500 })
   let images = imagesRes.data || []
   if (images.length) {
     const paths = Array.from(new Set(images.flatMap((x) => [x.path, deriveThumbPath(x.path)]).filter(Boolean)))
@@ -23,7 +59,7 @@ export async function GET(req, { params }) {
     const urlMap = Object.fromEntries((signed.data || []).map((x, i) => [paths[i], x?.signedUrl || null]))
     images = images.map((img) => ({ ...img, url: urlMap[img.path] || null, thumb_url: urlMap[deriveThumbPath(img.path)] || urlMap[img.path] || null }))
   }
-  return Response.json({ item: poiRes.data, editorial: editorialRes.data || null, links: linksRes.data || [], affiliate_settings: affiliateRes.data || [], images }, { headers: { 'Cache-Control': 'no-store' } })
+  return Response.json({ item: poiRes.data, editorial: normalizeEditorial(editorialRes.data), links: linksRes.data || [], affiliate_settings: affiliateRes.data || [], images }, { headers: { 'Cache-Control': 'no-store' } })
 }
 
 export async function PUT(req, { params }) {

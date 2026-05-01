@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { createBrowserSupabaseClient } from '@/utils/supabase/client'
 import POIForm from '@/components/POIForm'
 import UserPOIImageUploader from '@/components/UserPOIImageUploader'
-import { authFetch, authFetchJson } from '@/utils/authFetch'
+import { authFetchJson } from '@/utils/authFetch'
 
 export default function MyPOIDetailClient({ poiId }) {
   const supabase = useMemo(() => createBrowserSupabaseClient(), [])
@@ -15,8 +15,7 @@ export default function MyPOIDetailClient({ poiId }) {
   const [userId, setUserId] = useState(null)
   const [coords, setCoords] = useState(null)
   async function load() {
-    const r = await authFetch('/api/me/pois')
-    const d = await r.json()
+    const d = await authFetchJson('/api/me/pois')
     if (d.error) return setMessage(d.error)
     const found = (d.items || []).find((x) => String(x.id) === String(poiId))
     if (!found) return setMessage('POI nicht gefunden oder kein Zugriff.')
