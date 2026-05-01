@@ -1,20 +1,13 @@
-import { createClient } from '@supabase/supabase-js'
+import { createBrowserClient } from '@supabase/ssr'
 
 let browserClient = null
 
 export function createBrowserSupabaseClient() {
   if (browserClient) return browserClient
 
-  browserClient = createClient(
+  browserClient = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-    {
-      auth: {
-        persistSession: true,
-        autoRefreshToken: true,
-        detectSessionInUrl: true,
-      },
-    }
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
   )
 
   return browserClient
