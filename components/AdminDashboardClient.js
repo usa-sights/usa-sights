@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { authFetch, authFetchJson } from '@/utils/authFetch'
+import { authFetchJson } from '@/utils/authFetch'
 import { Activity, Heart, Image as ImageIcon, Link2, MapPinned, MessageCircle, Reply, ShieldAlert, Star, Users } from 'lucide-react'
 import StatusBadge from '@/components/StatusBadge'
 
@@ -45,7 +45,7 @@ function QualityList({ title, icon: Icon, items = [], emptyText }) {
             {item.thumb_url ? (
               <img className="content-thumb" src={item.thumb_url} alt={item.title || 'POI'} loading="lazy" />
             ) : (
-              <div className="content-thumb content-thumb-fallback">POI</div>
+              <div className="content-thumb content-thumb-fallback"><MapPinned size={16} /></div>
             )}
             <span>
               <strong>{item.title || 'POI'}</strong>
@@ -255,7 +255,7 @@ export default function AdminDashboardClient() {
         <div className="recent-activity-list">
           {(activityFeed || []).map((item, idx) => (
             <Link key={`${item.type}-${idx}-${item.created_at}`} href={item.href} className="dashboard-status-item">
-              {item.thumb_url ? (
+              {item.type === 'Bild' && item.thumb_url ? (
                 <img className="content-thumb" src={item.thumb_url} alt={item.title || item.type} loading="lazy" />
               ) : (
                 <div className="content-thumb content-thumb-fallback"><ActivityIcon type={item.type} /></div>

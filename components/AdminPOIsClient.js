@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { authFetchJson } from '@/utils/authFetch'
 import { createBrowserSupabaseClient } from '@/utils/supabase/client'
+import StatusBadge from '@/components/StatusBadge'
 
 const sorters = {
   title: (a, b) => String(a.title || '').localeCompare(String(b.title || '')),
@@ -193,11 +194,14 @@ export default function AdminPOIsClient() {
               <tr key={poi.id}>
                 <td>{poi.slug ? <Link href={`/poi/${poi.slug}`} className="poi-inline-link">{poi.title}</Link> : poi.title}</td>
                 <td>
-                  <select className="select" value={poi.status} onChange={(e) => changeStatus(poi.id, e.target.value)}>
-                    <option value="pending">pending</option>
-                    <option value="published">published</option>
-                    <option value="rejected">rejected</option>
-                  </select>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                    <StatusBadge value={poi.status} />
+                    <select className="select" value={poi.status} onChange={(e) => changeStatus(poi.id, e.target.value)}>
+                      <option value="pending">pending</option>
+                      <option value="published">published</option>
+                      <option value="rejected">rejected</option>
+                    </select>
+                  </div>
                 </td>
                 <td>{poi.categories?.name || '-'}</td>
                 <td>{poi.city || '-'}</td>

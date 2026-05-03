@@ -20,10 +20,10 @@ export async function GET(req) {
 
   const [editorialResult, linksResult, affiliateSettingsResult, providersResult, imagesResult] = await Promise.all([
     admin.from('poi_editorial').select('*').eq('poi_id', poi.id).maybeSingle(),
-    admin.from('poi_external_links').select('*').eq('poi_id', poi.id).eq('status', 'published').order('created_at', { ascending: true }),
+    admin.from('poi_external_links').select('*').eq('poi_id', poi.id).in('status', ['published', 'approved']).order('created_at', { ascending: true }),
     admin.from('poi_affiliate_settings').select('*').eq('poi_id', poi.id).eq('is_enabled', true),
     admin.from('affiliate_providers').select('provider_key,provider_name,is_global_enabled').order('sort_order'),
-    admin.from('poi_images').select('*').eq('poi_id', poi.id).eq('status', 'approved').order('is_gallery_pick', { ascending: false }).order('is_cover', { ascending: false }).order('sort_order', { ascending: true }).order('created_at', { ascending: false }),
+    admin.from('poi_images').select('*').eq('poi_id', poi.id).in('status', ['approved', 'published']).order('is_cover', { ascending: false }).order('created_at', { ascending: false }).order('is_gallery_pick', { ascending: false }).order('sort_order', { ascending: true }),
   ])
 
   const images = imagesResult.data || []

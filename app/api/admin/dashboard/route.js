@@ -70,9 +70,10 @@ async function attachPoiThumbs(admin, items) {
       .from('poi_images')
       .select('poi_id,path,is_cover,is_gallery_pick,created_at,status')
       .in('poi_id', poiIds)
+      .in('status', ['approved', 'published'])
       .order('is_cover', { ascending: false })
-      .order('is_gallery_pick', { ascending: false })
       .order('created_at', { ascending: false })
+      .order('is_gallery_pick', { ascending: false })
   ) : []
 
   const firstByPoi = new Map()
@@ -153,7 +154,7 @@ export async function GET(req) {
     safeCount(admin.from('profiles').select('*', { count: 'exact', head: true })),
     safeCount(admin.from('poi_images').select('*', { count: 'exact', head: true })),
     safeCount(admin.from('poi_images').select('*', { count: 'exact', head: true }).eq('status', 'pending')),
-    safeCount(admin.from('poi_images').select('*', { count: 'exact', head: true }).eq('status', 'approved')),
+    safeCount(admin.from('poi_images').select('*', { count: 'exact', head: true }).in('status', ['approved', 'published'])),
     safeCount(admin.from('poi_images').select('*', { count: 'exact', head: true }).eq('status', 'rejected')),
     safeCount(admin.from('poi_external_links').select('*', { count: 'exact', head: true }).eq('status', 'pending')),
     safeCount(admin.from('poi_change_requests').select('*', { count: 'exact', head: true }).eq('status', 'pending')),
@@ -162,7 +163,7 @@ export async function GET(req) {
     safeCount(admin.from('poi_external_links').select('*', { count: 'exact', head: true }).gte('created_at', sevenDaysAgo.toISOString())),
     safeCount(admin.from('poi_change_requests').select('*', { count: 'exact', head: true }).gte('created_at', sevenDaysAgo.toISOString())),
     safeCount(admin.from('poi_external_links').select('*', { count: 'exact', head: true })),
-    safeCount(admin.from('poi_external_links').select('*', { count: 'exact', head: true }).eq('status', 'published')),
+    safeCount(admin.from('poi_external_links').select('*', { count: 'exact', head: true }).in('status', ['published', 'approved'])),
     safeCount(admin.from('poi_external_links').select('*', { count: 'exact', head: true }).eq('status', 'rejected')),
     safeData(admin.from('pois').select('id,title,slug,status,updated_at,created_at').order('updated_at', { ascending: false }).limit(8)),
     safeData(admin.from('poi_reviews').select('id,created_at,poi_id,rating,pois(title,slug)').order('created_at', { ascending: false }).limit(8)),
@@ -179,7 +180,7 @@ export async function GET(req) {
     ? Number((reviewsWithRating.reduce((sum, row) => sum + Number(row.rating || 0), 0) / reviewsWithRating.length).toFixed(2))
     : 0
 
-  const approvedImagePoiSet = new Set((imageRows || []).filter((x) => x.status === 'approved').map((x) => x.poi_id))
+  const approvedImagePoiSet = new Set((imageRows || []).filter((x) => ['approved', 'published'].includes(x.status)).map((x) => x.poi_id))
   const reviewPoiSet = new Set((reviewRows || []).map((x) => x.poi_id))
 
   const poisWithoutImages = allPoiRows.filter((x) => !approvedImagePoiSet.has(x.id)).length

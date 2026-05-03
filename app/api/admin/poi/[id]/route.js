@@ -20,6 +20,28 @@ function numberOrNull(value) {
   return Number.isFinite(next) ? next : null
 }
 
+function preserveText(value, current = null) {
+  const next = normalizeText(value, null)
+  if (next === null || next === '') return current ?? null
+  return next
+}
+
+function preserveNumber(value, current = null) {
+  const next = numberOrNull(value)
+  return next === null ? (current ?? null) : next
+}
+
+function preserveList(value, current = []) {
+  const next = normalizeList(value)
+  return next.length ? next : normalizeList(current)
+}
+
+function preserveFamily(value, current = {}) {
+  const next = normalizeFamilyFriendly(value)
+  const hasNext = typeof next.value === 'boolean' || String(next.reason || '').trim()
+  return hasNext ? next : normalizeFamilyFriendly(current)
+}
+
 export async function GET(req, { params }) {
   const auth = await requireAdminRoute(req)
   if (!auth.ok) return noStoreJson({ error: auth.error }, { status: auth.status })
@@ -60,23 +82,32 @@ export async function PUT(req, { params }) {
   const admin = auth.admin
   const poiPayload = body.poi || {}
   const editorialPayload = body.editorial || {}
-  const nextStatus = ['pending','published','rejected'].includes(poiPayload.status) ? poiPayload.status : 'pending'
+
+  const [existingPoiRes, existingEditorialRes] = await Promise.all([
+    admin.from('pois').select('*').eq('id', id).maybeSingle(),
+    admin.from('poi_editorial').select('*').eq('poi_id', id).maybeSingle(),
+  ])
+  if (existingPoiRes.error) return noStoreJson({ error: existingPoiRes.error.message }, { status: 500 })
+  const existingPoi = normalizePoiRecord(existingPoiRes.data || {})
+  const existingEditorial = normalizeEditorialRecord(existingEditorialRes.data || {})
+
+  const nextStatus = ['pending','published','rejected'].includes(poiPayload.status) ? poiPayload.status : (existingPoi.status || 'pending')
 
   const updatePayload = {
-    title: normalizeText(poiPayload.title, null),
-    slug: normalizeText(poiPayload.slug, null),
-    category_id: poiPayload.category_id || null,
-    state: normalizeText(poiPayload.state, null),
-    city: normalizeText(poiPayload.city, null),
-    address: normalizeText(poiPayload.address, null),
-    latitude: numberOrNull(poiPayload.latitude),
-    longitude: numberOrNull(poiPayload.longitude),
-    short_description: normalizeText(poiPayload.short_description, null),
-    description: normalizeText(poiPayload.description, null),
-    opening_hours_text: normalizeText(poiPayload.opening_hours_text, null),
-    price_info_text: normalizeText(poiPayload.price_info_text, null),
-    hotels_nearby_text: normalizeText(poiPayload.hotels_nearby_text, null),
-    website_url: normalizeText(poiPayload.website_url, null),
+    title: preserveText(poiPayload.title, existingPoi.title),
+    slug: preserveText(poiPayload.slug, existingPoi.slug),
+    category_id: poiPayload.category_id || existingPoi.category_id || null,
+    state: preserveText(poiPayload.state, existingPoi.state),
+    city: preserveText(poiPayload.city, existingPoi.city),
+    address: preserveText(poiPayload.address, existingPoi.address),
+    latitude: preserveNumber(poiPayload.latitude, existingPoi.latitude),
+    longitude: preserveNumber(poiPayload.longitude, existingPoi.longitude),
+    short_description: preserveText(poiPayload.short_description, existingPoi.short_description),
+    description: preserveText(poiPayload.description, existingPoi.description),
+    opening_hours_text: preserveText(poiPayload.opening_hours_text, existingPoi.opening_hours_text),
+    price_info_text: preserveText(poiPayload.price_info_text, existingPoi.price_info_text),
+    hotels_nearby_text: preserveText(poiPayload.hotels_nearby_text, existingPoi.hotels_nearby_text),
+    website_url: preserveText(poiPayload.website_url, existingPoi.website_url),
     status: nextStatus,
     updated_at: new Date().toISOString(),
   }
@@ -87,15 +118,15 @@ export async function PUT(req, { params }) {
 
   const editorialUpsertPayload = {
     poi_id: id,
-    highlights_json: normalizeList(editorialPayload.highlights_json),
-    nice_to_know_json: normalizeList(editorialPayload.nice_to_know_json),
-    visit_duration_text: normalizeText(editorialPayload.visit_duration_text, null),
-    best_time_to_visit_text: normalizeText(editorialPayload.best_time_to_visit_text, null),
-    family_friendly_json: normalizeFamilyFriendly(editorialPayload.family_friendly_json),
-    suggested_tags_json: normalizeList(editorialPayload.suggested_tags_json),
-    seo_title: normalizeText(editorialPayload.seo_title, null),
-    seo_description: normalizeText(editorialPayload.seo_description, null),
-    editorial_review_notes_json: normalizeList(editorialPayload.editorial_review_notes_json),
+    highlights_json: preserveList(editorialPayload.highlights_json, existingEditorial.highlights_json),
+    nice_to_know_json: preserveList(editorialPayload.nice_to_know_json, existingEditorial.nice_to_know_json),
+    visit_duration_text: preserveText(editorialPayload.visit_duration_text, existingEditorial.visit_duration_text),
+    best_time_to_visit_text: preserveText(editorialPayload.best_time_to_visit_text, existingEditorial.best_time_to_visit_text),
+    family_friendly_json: preserveFamily(editorialPayload.family_friendly_json, existingEditorial.family_friendly_json),
+    suggested_tags_json: preserveList(editorialPayload.suggested_tags_json, existingEditorial.suggested_tags_json),
+    seo_title: preserveText(editorialPayload.seo_title, existingEditorial.seo_title),
+    seo_description: preserveText(editorialPayload.seo_description, existingEditorial.seo_description),
+    editorial_review_notes_json: preserveList(editorialPayload.editorial_review_notes_json, existingEditorial.editorial_review_notes_json),
     updated_by: auth.user.id,
     updated_at: new Date().toISOString(),
   }
