@@ -46,7 +46,9 @@ export async function GET(req) {
 
   const providerMap = Object.fromEntries((providersResult.data || []).map((x) => [x.provider_key, x]))
   const affiliates = (affiliateSettingsResult.data || [])
+    .filter((x) => x.is_enabled !== false)
     .filter((x) => providerMap[x.provider_key]?.is_global_enabled !== false)
+    .filter((x) => String(x.manual_url || '').trim())
     .map((x) => ({
       provider_key: x.provider_key,
       provider_name: providerMap[x.provider_key]?.provider_name || x.provider_key,
@@ -56,6 +58,8 @@ export async function GET(req) {
       cta_text: x.cta_text || 'Verfügbarkeit prüfen',
       placement: x.placement || 'after_description',
       user_intent: x.user_intent || 'information',
+      headline_override: x.headline_override || null,
+      image_url: x.image_url || null,
     }))
 
   return Response.json({

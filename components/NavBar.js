@@ -79,6 +79,17 @@ function RankingVisibilityToggle({ vertical = false }) {
       return
     }
 
+    const publicCheck = await fetch(`/api/public/app-settings?t=${Date.now()}`, { cache: 'no-store' })
+      .then((res) => res.json())
+      .catch((e) => ({ error: e.message }))
+
+    if (publicCheck.error || publicCheck.publicRankingVisible !== nextValue) {
+      setEnabled(previousValue)
+      setError(publicCheck.error || 'Ranking wurde gespeichert, aber die öffentliche Ansicht hat den neuen Wert noch nicht bestätigt. Bitte neu laden und erneut prüfen.')
+      setSaving(false)
+      return
+    }
+
     setEnabled(nextValue)
     window.dispatchEvent(new CustomEvent("app-settings-changed", { detail: { publicRankingVisible: nextValue } }))
     setSaving(false)

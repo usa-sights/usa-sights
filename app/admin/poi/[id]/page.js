@@ -1,6 +1,4 @@
-import dynamicImport from 'next/dynamic'
-
-const AdminPOIReviewClient = dynamicImport(() => import('@/components/AdminPOIReviewClient'), { ssr: false })
+import AdminPOIReviewClient from '@/components/AdminPOIReviewClient'
 
 export const dynamic = 'force-dynamic'
 

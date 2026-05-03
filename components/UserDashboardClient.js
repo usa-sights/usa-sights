@@ -1,10 +1,11 @@
 'use client'
 
 import Link from 'next/link'
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { authFetchJson } from '@/utils/authFetch'
 import { Heart, MessageCircle, Reply, Image as ImageIcon, Link as LinkIcon, PencilLine, Clock3, MapPinned, Star, MessageSquareQuote } from 'lucide-react'
+import StatusBadge from '@/components/StatusBadge'
 
 function formatDateTime(value) {
   return value ? new Intl.DateTimeFormat('de-DE', { dateStyle:'medium', timeStyle:'short' }).format(new Date(value)) : '-'
@@ -14,7 +15,6 @@ function MetricCard({ icon:Icon, title, total, href, tone='neutral', subtitle })
   return <Link href={href} className={`card metric-card metric-card-link metric-${tone}`}><div className="dashboard-stat-head"><Icon size={18} /><span>{title}</span></div><div className="metric-total">{Number(total || 0).toLocaleString('de-DE')}</div>{subtitle ? <div className="metric-subtitle">{subtitle}</div> : null}</Link>
 }
 
-function StatusBadge({ value }) { return <span className={`status-pill status-${value}`}>{value}</span> }
 function ImageThumb({ item, fallback }) {
   const src = item?.thumb_url || item?.url || null
   if (!src || !String(src).startsWith('http')) return <div className="content-thumb content-thumb-fallback">{fallback}</div>
@@ -58,13 +58,38 @@ export default function UserDashboardClient() {
   const searchParams = useSearchParams()
   const section = searchParams.get('section') || 'overview'
 
-  useEffect(() => {
-    ;(async () => {
-      const next = await authFetchJson('/api/me/dashboard')
-      if (next.error) return setError(next.error)
-      setData(next)
-    })().catch((e) => setError(e.message))
+  const loadDashboard = useCallback(async () => {
+    const next = await authFetchJson(`/api/me/dashboard?t=${Date.now()}`, { cache: 'no-store' })
+    if (next.error) {
+      setError(next.error)
+      return
+    }
+    setError('')
+    setData(next)
   }, [])
+
+  useEffect(() => {
+    loadDashboard().catch((e) => setError(e.message))
+  }, [loadDashboard])
+
+  useEffect(() => {
+    const refresh = () => loadDashboard().catch((e) => setError(e.message))
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') refresh()
+    }
+
+    const interval = window.setInterval(refresh, 120000)
+    window.addEventListener('focus', refresh)
+    window.addEventListener('app-data-changed', refresh)
+    document.addEventListener('visibilitychange', handleVisibility)
+
+    return () => {
+      window.clearInterval(interval)
+      window.removeEventListener('focus', refresh)
+      window.removeEventListener('app-data-changed', refresh)
+      document.removeEventListener('visibilitychange', handleVisibility)
+    }
+  }, [loadDashboard])
 
   const sectionLinks = useMemo(() => ([
     { key:'overview', label:'Übersicht' },

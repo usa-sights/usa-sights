@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { authFetch, authFetchJson } from '@/utils/authFetch'
 import { Activity, Heart, Image as ImageIcon, Link2, MapPinned, MessageCircle, Reply, ShieldAlert, Star, Users } from 'lucide-react'
+import StatusBadge from '@/components/StatusBadge'
 
 function MetricCard({ icon: Icon, title, total, totalInfo, items = [] }) {
   return (
@@ -28,10 +29,6 @@ function MetricCard({ icon: Icon, title, total, totalInfo, items = [] }) {
       </div>
     </div>
   )
-}
-
-function StatusBadge({ value }) {
-  return <span className={`status-pill status-${value}`}>{value}</span>
 }
 
 function QualityList({ title, icon: Icon, items = [], emptyText }) {
@@ -91,7 +88,7 @@ export default function AdminDashboardClient() {
 
     async function load() {
       try {
-        const dashboardRes = await authFetchJson('/api/admin/dashboard', { cache: 'no-store' })
+        const dashboardRes = await authFetchJson(`/api/admin/dashboard?t=${Date.now()}`, { cache: 'no-store' })
         if (!active) return
         if (dashboardRes.error) {
           setError(dashboardRes.error)

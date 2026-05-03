@@ -2558,3 +2558,24 @@ pre.code { white-space: pre-wrap; background: #f8fafc; padding: 12px; border-rad
   display:block!important;
   stroke-width:2.1!important;
 }
+
+/* Central status badge color contract */
+.status-pill.status-tone-green,
+.status-pill.status-approved,
+.status-pill.status-published,
+.status-pill.status-active { background:#dcfce7; color:#166534; }
+.status-pill.status-tone-yellow,
+.status-pill.status-pending { background:#fef3c7; color:#92400e; }
+.status-pill.status-tone-red,
+.status-pill.status-rejected,
+.status-pill.status-declined,
+.status-pill.status-blocked { background:#fee2e2; color:#991b1b; }
+.status-pill.status-tone-blue,
+.status-pill.status-draft,
+.status-pill.status-in_review,
+.status-pill.status-review,
+.status-pill.status-processing { background:#dbeafe; color:#1d4ed8; }
+.status-pill.status-tone-gray,
+.status-pill.status-archived,
+.status-pill.status-inactive,
+.status-pill.status-unknown { background:#e5e7eb; color:#374151; }

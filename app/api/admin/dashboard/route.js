@@ -70,7 +70,6 @@ async function attachPoiThumbs(admin, items) {
       .from('poi_images')
       .select('poi_id,path,is_cover,is_gallery_pick,created_at,status')
       .in('poi_id', poiIds)
-      .eq('status', 'approved')
       .order('is_cover', { ascending: false })
       .order('is_gallery_pick', { ascending: false })
       .order('created_at', { ascending: false })
