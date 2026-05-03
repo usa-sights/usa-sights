@@ -192,9 +192,9 @@ export default function AdminPOIsClient() {
           <tbody>
             {sortedItems.map((poi) => (
               <tr key={poi.id}>
-                <td>{poi.slug ? <Link href={`/poi/${poi.slug}`} className="poi-inline-link">{poi.title}</Link> : poi.title}</td>
+                <td className="admin-poi-title-cell">{poi.slug ? <Link href={`/poi/${poi.slug}`} className="poi-inline-link admin-poi-title-link" title={poi.title}>{poi.title}</Link> : <span className="admin-poi-title-link" title={poi.title}>{poi.title}</span>}</td>
                 <td>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                  <div className="admin-poi-status-control">
                     <StatusBadge value={poi.status} />
                     <select className="select" value={poi.status} onChange={(e) => changeStatus(poi.id, e.target.value)}>
                       <option value="pending">pending</option>

@@ -3,6 +3,7 @@ import { deriveThumbPath } from '@/lib/imageUpload'
 import { normalizeEditorialRecord, normalizePoiRecord, normalizeList, normalizeFamilyFriendly, normalizeText } from '@/lib/poiEditorial'
 
 export const dynamic = 'force-dynamic'
+export const revalidate = 0
 
 function noStoreJson(body, init = {}) {
   return Response.json(body, {
@@ -42,6 +43,22 @@ function preserveFamily(value, current = {}) {
   return hasNext ? next : normalizeFamilyFriendly(current)
 }
 
+async function buildSignedUrlMap(admin, paths = []) {
+  const uniquePaths = Array.from(new Set(paths.filter(Boolean)))
+  const entries = await Promise.all(uniquePaths.map(async (path) => {
+    const { data } = await admin.storage.from('poi-images').createSignedUrl(path, 3600)
+    if (data?.signedUrl) return [path, data.signedUrl]
+    return [path, null]
+  }))
+  return Object.fromEntries(entries.filter(([, url]) => !!url))
+}
+
+async function approveRelatedPublicContent(admin, poiId) {
+  const now = new Date().toISOString()
+  await admin.from('poi_images').update({ status: 'approved' }).eq('poi_id', poiId).in('status', ['pending', 'approved'])
+  await admin.from('poi_external_links').update({ status: 'published', updated_at: now }).eq('poi_id', poiId).in('status', ['pending', 'published'])
+}
+
 export async function GET(req, { params }) {
   const auth = await requireAdminRoute(req)
   if (!auth.ok) return noStoreJson({ error: auth.error }, { status: auth.status })
@@ -59,9 +76,8 @@ export async function GET(req, { params }) {
 
   let images = imagesRes.data || []
   if (images.length) {
-    const paths = Array.from(new Set(images.flatMap((x) => [x.path, deriveThumbPath(x.path)]).filter(Boolean)))
-    const signed = await admin.storage.from('poi-images').createSignedUrls(paths, 3600)
-    const urlMap = Object.fromEntries((signed.data || []).map((x, i) => [paths[i], x?.signedUrl || null]))
+    const paths = Array.from(new Set(images.flatMap((x) => [deriveThumbPath(x.path), x.path]).filter(Boolean)))
+    const urlMap = await buildSignedUrlMap(admin, paths)
     images = images.map((img) => ({ ...img, url: urlMap[img.path] || null, thumb_url: urlMap[deriveThumbPath(img.path)] || urlMap[img.path] || null }))
   }
 
@@ -115,6 +131,10 @@ export async function PUT(req, { params }) {
 
   const { data: poi, error: poiError } = await admin.from('pois').update(updatePayload).eq('id', id).select('*, categories(name)').single()
   if (poiError) return noStoreJson({ error: poiError.message }, { status: 500 })
+
+  if (nextStatus === 'published') {
+    await approveRelatedPublicContent(admin, id)
+  }
 
   const editorialUpsertPayload = {
     poi_id: id,

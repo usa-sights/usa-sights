@@ -8,8 +8,12 @@ export async function POST(req) {
   const urls = {}
   for (const path of paths) {
     const { data, error } = await supabase.storage.from('poi-images').createSignedUrl(path, 3600)
-    if (!error && data?.signedUrl) urls[path] = data.signedUrl
+    if (!error && data?.signedUrl) {
+      urls[path] = data.signedUrl
+      continue
+    }
+
   }
 
-  return Response.json({ urls })
+  return Response.json({ urls }, { headers: { 'Cache-Control': 'no-store' } })
 }

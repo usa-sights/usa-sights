@@ -18,6 +18,16 @@ function noStoreHeaders() {
   }
 }
 
+async function signedOrPublicImageMap(admin, paths = []) {
+  const uniquePaths = Array.from(new Set(paths.filter(Boolean)))
+  const entries = await Promise.all(uniquePaths.map(async (path) => {
+    const { data } = await admin.storage.from('poi-images').createSignedUrl(path, 3600)
+    if (data?.signedUrl) return [path, data.signedUrl]
+    return [path, null]
+  }))
+  return Object.fromEntries(entries.filter(([, url]) => !!url))
+}
+
 async function buildImageMap(admin, items = [], includeImages = false) {
   if (!items.length) return {}
   const poiIds = items.map((x) => x.id).filter(Boolean)
@@ -25,10 +35,12 @@ async function buildImageMap(admin, items = [], includeImages = false) {
 
   const imagesRes = await admin
     .from('poi_images')
-    .select('poi_id,path,is_cover,created_at')
+    .select('poi_id,path,is_cover,is_gallery_pick,sort_order,created_at')
     .in('poi_id', poiIds)
-    .eq('status', 'approved')
+    .in('status', ['approved', 'published'])
     .order('is_cover', { ascending: false })
+    .order('is_gallery_pick', { ascending: false })
+    .order('sort_order', { ascending: true })
     .order('created_at', { ascending: false })
 
   const chosen = new Map()
@@ -46,13 +58,7 @@ async function buildImageMap(admin, items = [], includeImages = false) {
   }
 
   const paths = Array.from(new Set(Array.from(chosen.values()).flatMap((img) => [deriveThumbPath(img.path), img.path]).filter(Boolean)))
-  let signedMap = {}
-  if (paths.length) {
-    const signed = await admin.storage.from('poi-images').createSignedUrls(paths, 3600)
-    if (!signed.error) {
-      signedMap = Object.fromEntries((signed.data || []).map((entry, idx) => [paths[idx], entry.signedUrl]))
-    }
-  }
+  const signedMap = await signedOrPublicImageMap(admin, paths)
 
   return Object.fromEntries(Array.from(chosen.entries()).map(([poiId, img]) => {
     const thumbPath = deriveThumbPath(img.path)

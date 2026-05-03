@@ -3,12 +3,31 @@ import { deriveThumbPath } from '@/lib/imageUpload'
 import { normalizeEditorialRecord, normalizePoiRecord } from '@/lib/poiEditorial'
 
 export const dynamic = 'force-dynamic'
+export const revalidate = 0
+
+function noStoreHeaders() {
+  return {
+    'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0, s-maxage=0',
+    Pragma: 'no-cache',
+    Expires: '0',
+  }
+}
+
+async function buildSignedUrlMap(admin, paths = []) {
+  const uniquePaths = Array.from(new Set(paths.filter(Boolean)))
+  const entries = await Promise.all(uniquePaths.map(async (path) => {
+    const { data } = await admin.storage.from('poi-images').createSignedUrl(path, 3600)
+    if (data?.signedUrl) return [path, data.signedUrl]
+    return [path, null]
+  }))
+  return Object.fromEntries(entries.filter(([, url]) => !!url))
+}
 
 export async function GET(req) {
   const admin = createSupabaseAdminClient()
   const { searchParams } = new URL(req.url)
   const slug = searchParams.get('slug')
-  if (!slug) return Response.json({ error: 'slug fehlt' }, { status: 400 })
+  if (!slug) return Response.json({ error: 'slug fehlt' }, { status: 400, headers: noStoreHeaders() })
 
   const { data: poi, error: poiError } = await admin
     .from('pois')
@@ -16,25 +35,20 @@ export async function GET(req) {
     .eq('slug', slug)
     .single()
 
-  if (poiError) return Response.json({ error: poiError.message }, { status: 500 })
+  if (poiError) return Response.json({ error: poiError.message }, { status: 500, headers: noStoreHeaders() })
 
   const [editorialResult, linksResult, affiliateSettingsResult, providersResult, imagesResult] = await Promise.all([
     admin.from('poi_editorial').select('*').eq('poi_id', poi.id).maybeSingle(),
     admin.from('poi_external_links').select('*').eq('poi_id', poi.id).in('status', ['published', 'approved']).order('created_at', { ascending: true }),
     admin.from('poi_affiliate_settings').select('*').eq('poi_id', poi.id).eq('is_enabled', true),
     admin.from('affiliate_providers').select('provider_key,provider_name,is_global_enabled').order('sort_order'),
-    admin.from('poi_images').select('*').eq('poi_id', poi.id).in('status', ['approved', 'published']).order('is_cover', { ascending: false }).order('created_at', { ascending: false }).order('is_gallery_pick', { ascending: false }).order('sort_order', { ascending: true }),
+    admin.from('poi_images').select('*').eq('poi_id', poi.id).in('status', ['approved', 'published']).order('is_cover', { ascending: false }).order('is_gallery_pick', { ascending: false }).order('sort_order', { ascending: true }).order('created_at', { ascending: false }),
   ])
 
   const images = imagesResult.data || []
   let imageUrls = {}
   if (images.length) {
-    const paths = images.flatMap((x) => [x.path, deriveThumbPath(x.path)]).filter(Boolean)
-    const uniquePaths = Array.from(new Set(paths))
-    const signed = await admin.storage.from('poi-images').createSignedUrls(uniquePaths, 3600)
-    if (!signed.error) {
-      imageUrls = Object.fromEntries((signed.data || []).map((x, i) => [uniquePaths[i], x.signedUrl]))
-    }
+    imageUrls = await buildSignedUrlMap(admin, images.flatMap((x) => [deriveThumbPath(x.path), x.path]))
   }
 
   let profileMap = {}
@@ -74,6 +88,6 @@ export async function GET(req) {
       uploaded_by_label: profileMap[img.uploaded_by] || null,
     })),
   }, {
-    headers: { 'Cache-Control': 'no-store' }
+    headers: noStoreHeaders()
   })
 }
