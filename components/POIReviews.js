@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { createBrowserSupabaseClient } from '@/utils/supabase/client'
 import { authFetchJson } from '@/utils/authFetch'
+import { calculateReviewStats, normalizeReviewRow } from '@/lib/poiReviews'
 
 function Stars({ value, onChange = null }) {
   const [hoverValue, setHoverValue] = useState(0)
@@ -31,7 +32,7 @@ function formatDate(value) {
   return new Intl.DateTimeFormat('de-DE', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value))
 }
 
-export default function POIReviews({ poiId }) {
+export default function POIReviews({ poiId, onChanged = null }) {
   const supabase = useMemo(() => createBrowserSupabaseClient(), [])
   const [items, setItems] = useState([])
   const [average, setAverage] = useState(0)
@@ -42,13 +43,22 @@ export default function POIReviews({ poiId }) {
   const [replyTexts, setReplyTexts] = useState({})
   const [loggedIn, setLoggedIn] = useState(false)
 
+  function applyItems(nextItems) {
+    const normalized = (nextItems || []).map((item) => normalizeReviewRow(item))
+    setItems(normalized)
+    const stats = calculateReviewStats(normalized)
+    setAverage(stats.average || 0)
+    setCount(stats.count || 0)
+  }
+
   async function load() {
+    if (!poiId) return
     const res = await fetch(`/api/poi-reviews?poi_id=${poiId}&t=${Date.now()}`, { cache: 'no-store' })
     const data = await res.json()
     if (data.error) return setMessage(data.error)
-    setItems(data.items || [])
-    setAverage(data.average || 0)
-    setCount(data.count || 0)
+    applyItems(data.items || [])
+    if (typeof data.average === 'number') setAverage(data.average || 0)
+    if (typeof data.count === 'number') setCount(data.count || 0)
   }
 
   async function refreshLogin() {
@@ -101,8 +111,20 @@ export default function POIReviews({ poiId }) {
       body: JSON.stringify({ poi_id: poiId, rating, review_text: reviewText || null }),
     })
     if (result.error) return setMessage(result.error)
+    const savedItem = result.item ? normalizeReviewRow(result.item, result.item.author_name || 'Du') : null
+    if (savedItem) {
+      setItems((prev) => {
+        const withoutOld = prev.filter((item) => item.id !== savedItem.id && (!savedItem.user_id || item.user_id !== savedItem.user_id))
+        return [savedItem, ...withoutOld]
+      })
+      const optimisticItems = [savedItem, ...items.filter((item) => item.id !== savedItem.id && (!savedItem.user_id || item.user_id !== savedItem.user_id))]
+      const stats = calculateReviewStats(optimisticItems)
+      setAverage(stats.average || 0)
+      setCount(stats.count || 0)
+    }
     setReviewText('')
     setMessage('Bewertung gespeichert. Du kannst sie später jederzeit anpassen.')
+    onChanged?.()
     await load()
   }
 
@@ -121,8 +143,8 @@ export default function POIReviews({ poiId }) {
     await load()
   }
 
-  const visibleReviews = items.filter((review) => String(review.review_text || '').trim())
-  const hiddenRatingsOnly = Math.max(0, count - visibleReviews.length)
+  const visibleReviews = items.filter((review) => Number(review.rating || 0) > 0 || String(review.review_text || '').trim())
+  const opinionCount = items.filter((review) => String(review.review_text || '').trim()).length
 
   return (
     <div id="poi-reviews" className="card" style={{ marginTop: 16 }}>
@@ -149,7 +171,7 @@ export default function POIReviews({ poiId }) {
       </div>
 
       {message ? <p>{message}</p> : null}
-      {hiddenRatingsOnly ? <p className="muted" style={{ marginTop: 12 }}>{hiddenRatingsOnly.toLocaleString('de-DE')} Bewertung{hiddenRatingsOnly === 1 ? '' : 'en'} ohne Text werden in der Gesamtzahl mitgezählt.</p> : null}
+      {count ? <p className="muted" style={{ marginTop: 12 }}>{opinionCount.toLocaleString('de-DE')} Meinung{opinionCount === 1 ? '' : 'en'} mit Text · {count.toLocaleString('de-DE')} Bewertung{count === 1 ? '' : 'en'} insgesamt</p> : null}
 
       <div className="poi-reviews-list" style={{ marginTop: 16 }}>
         {visibleReviews.length ? visibleReviews.map((review) => (
@@ -161,7 +183,7 @@ export default function POIReviews({ poiId }) {
               </div>
               <Stars value={review.rating} />
             </div>
-            <p className="poi-review-text">{review.review_text}</p>
+            {String(review.review_text || '').trim() ? <p className="poi-review-text">{review.review_text}</p> : <p className="poi-review-text muted">Bewertung ohne Text.</p>}
 
             {review.replies?.length ? (
               <div className="poi-reply-list">
@@ -190,7 +212,7 @@ export default function POIReviews({ poiId }) {
               </div>
             ) : null}
           </div>
-        )) : <p className="muted">Es gibt noch keine Reviews mit Text.</p>}
+        )) : <p className="muted">Es gibt noch keine Bewertungen oder Meinungen.</p>}
       </div>
     </div>
   )

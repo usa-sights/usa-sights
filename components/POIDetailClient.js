@@ -227,7 +227,7 @@ export default function POIDetailClient({ slug }) {
         </div>
       )}
 
-      <POIReviews poiId={poi.id} />
+      <POIReviews poiId={poi.id} onChanged={loadPoi} />
     </main>
   )
 }
