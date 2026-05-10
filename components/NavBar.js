@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { createBrowserSupabaseClient } from '@/utils/supabase/client'
 import { authFetchJson } from '@/utils/authFetch'
-import { Menu, Map, Tags, PlusSquare, LogIn, UserPlus, Heart, LayoutDashboard, FolderPen, PencilLine, LogOut, FolderOpenDot, Compass, CircleUserRound, Trophy } from 'lucide-react'
+import { Menu, Map, Tags, PlusSquare, LogIn, UserPlus, Heart, LayoutDashboard, FolderPen, PencilLine, LogOut, FolderOpenDot, Compass, CircleUserRound, Trophy, Wrench } from 'lucide-react'
 
 function MenuLink({ href, icon: Icon, children, onClick, badge = null, vertical = false }) {
   return (
@@ -103,6 +103,67 @@ function RankingVisibilityToggle({ vertical = false }) {
   )
 }
 
+
+function MaintenanceModeToggle({ vertical = false }) {
+  const [enabled, setEnabled] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
+
+  async function loadSetting() {
+    const data = await authFetchJson('/api/admin/app-settings?t=' + Date.now(), { cache: 'no-store' }).catch((e) => ({ error: e.message }))
+    if (data.error) {
+      setError(data.error)
+      return
+    }
+    setEnabled(data.maintenanceMode === true)
+  }
+
+  useEffect(() => { loadSetting() }, [])
+
+  async function toggle() {
+    if (saving) return
+    const nextValue = !enabled
+    const previousValue = enabled
+    setSaving(true)
+    setError('')
+
+    const data = await authFetchJson('/api/admin/app-settings?t=' + Date.now(), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ maintenanceMode: nextValue }),
+      cache: 'no-store',
+    }).catch((e) => ({ error: e.message }))
+
+    if (data.error || data.ok !== true || data.maintenanceMode !== nextValue) {
+      setEnabled(previousValue)
+      setError(data.error || 'Wartungsmodus wurde nicht gespeichert. Bitte erneut versuchen.')
+      setSaving(false)
+      return
+    }
+
+    setEnabled(nextValue)
+    window.dispatchEvent(new CustomEvent('app-settings-changed', { detail: { maintenanceMode: nextValue } }))
+    setSaving(false)
+  }
+
+  const color = enabled ? '#dc2626' : '#16a34a'
+  const background = enabled ? '#fee2e2' : '#dcfce7'
+  const borderColor = enabled ? '#fecaca' : '#bbf7d0'
+
+  return (
+    <button
+      type="button"
+      className={vertical ? 'admin-rail-link admin-toggle-btn' : 'nav-link-button admin-toggle-btn'}
+      onClick={toggle}
+      disabled={saving}
+      title={error || 'Schaltet den öffentlichen Wartungsmodus ein oder aus.'}
+      style={{ borderColor, background, color }}
+    >
+      <Wrench size={18} />
+      <span>{saving ? 'Wartung speichert ...' : enabled ? 'Wartung aktiv' : 'Wartung aus'}</span>
+    </button>
+  )
+}
 
 export default function NavBar() {
   const supabase = useMemo(() => createBrowserSupabaseClient(), [])
@@ -272,6 +333,7 @@ export default function NavBar() {
                       <MenuLink href="/admin/affiliate-providers" icon={Tags} onClick={() => setOpen(false)}>Affiliates</MenuLink>
                       <MapNavToggle />
                       <RankingVisibilityToggle />
+                      <MaintenanceModeToggle />
                     </>
                   ) : (
                     <MenuLink href="/account" icon={LayoutDashboard} onClick={() => setOpen(false)}>Dashboard</MenuLink>
@@ -305,6 +367,7 @@ export default function NavBar() {
             <MenuLink href="/admin/affiliate-providers" icon={Tags} vertical>Affiliates</MenuLink>
             <MapNavToggle vertical />
             <RankingVisibilityToggle vertical />
+            <MaintenanceModeToggle vertical />
           </div>
         </aside>
       ) : null}

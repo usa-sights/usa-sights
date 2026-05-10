@@ -31,6 +31,9 @@ export default function AdminPOIsClient() {
   const [page, setPage] = useState(1)
   const [meta, setMeta] = useState({ total: 0, limit: 50, has_more: false })
   const [sortKey, setSortKey] = useState('updated_at')
+  const [selectedIds, setSelectedIds] = useState([])
+  const [bulkStatus, setBulkStatus] = useState('published')
+  const [bulkBusy, setBulkBusy] = useState(false)
 
   async function load(next = {}) {
     const nextStatus = next.status ?? status
@@ -55,6 +58,7 @@ export default function AdminPOIsClient() {
     if (data.error) return setMessage(data.error)
 
     setItems(data.items || [])
+    setSelectedIds((prev) => prev.filter((id) => (data.items || []).some((item) => item.id === id)))
     setMeta({ total: data.total || 0, limit: data.limit || 50, has_more: !!data.has_more })
   }
 
@@ -81,10 +85,75 @@ export default function AdminPOIsClient() {
 
   const totalPages = Math.max(1, Math.ceil((meta.total || 0) / (meta.limit || 50)))
   const sortedItems = [...items].sort(sorters[sortKey] || sorters.updated_at)
+  const selectedCount = selectedIds.length
+  const allVisibleSelected = sortedItems.length > 0 && sortedItems.every((poi) => selectedIds.includes(poi.id))
+  const someVisibleSelected = sortedItems.some((poi) => selectedIds.includes(poi.id))
 
   function applyAndReset() {
     setPage(1)
     load({ page: 1 })
+  }
+
+
+  function toggleSelected(id) {
+    setSelectedIds((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id])
+  }
+
+  function toggleVisible(checked) {
+    const visibleIds = sortedItems.map((poi) => poi.id).filter(Boolean)
+    setSelectedIds((prev) => {
+      if (checked) return Array.from(new Set([...prev, ...visibleIds]))
+      return prev.filter((id) => !visibleIds.includes(id))
+    })
+  }
+
+  async function bulkChangeStatus() {
+    if (!selectedIds.length || bulkBusy) return
+    const ok = window.confirm(`Status für ${selectedIds.length} markierte POI${selectedIds.length === 1 ? '' : 's'} auf "${bulkStatus}" ändern?`)
+    if (!ok) return
+    setBulkBusy(true)
+    setMessage('')
+    const failed = []
+    for (const id of selectedIds) {
+      const data = await authFetchJson(`/api/admin/pois/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: bulkStatus }),
+      })
+      if (data.error) failed.push(data.error)
+    }
+    setBulkBusy(false)
+    if (failed.length) {
+      setMessage(`${failed.length} POI${failed.length === 1 ? '' : 's'} konnten nicht aktualisiert werden: ${failed[0]}`)
+      await load()
+      return
+    }
+    setItems((prev) => prev.map((x) => selectedIds.includes(x.id) ? { ...x, status: bulkStatus } : x))
+    setSelectedIds([])
+    setMessage(`Status für ${selectedIds.length} POI${selectedIds.length === 1 ? '' : 's'} gespeichert`)
+  }
+
+  async function bulkDeletePois() {
+    if (!selectedIds.length || bulkBusy) return
+    const ok = window.confirm(`${selectedIds.length} markierte POI${selectedIds.length === 1 ? '' : 's'} wirklich vollständig löschen?`)
+    if (!ok) return
+    setBulkBusy(true)
+    setMessage('')
+    const idsToDelete = [...selectedIds]
+    const failed = []
+    for (const id of idsToDelete) {
+      const data = await authFetchJson(`/api/admin/pois/${id}`, { method: 'DELETE' })
+      if (data.error) failed.push(data.error)
+    }
+    setBulkBusy(false)
+    if (failed.length) {
+      setMessage(`${failed.length} POI${failed.length === 1 ? '' : 's'} konnten nicht gelöscht werden: ${failed[0]}`)
+      await load()
+      return
+    }
+    setItems((prev) => prev.filter((x) => !idsToDelete.includes(x.id)))
+    setSelectedIds([])
+    setMessage(`${idsToDelete.length} POI${idsToDelete.length === 1 ? '' : 's'} gelöscht`)
   }
 
   async function changeStatus(id, nextStatus) {
@@ -175,10 +244,33 @@ export default function AdminPOIsClient() {
 
       <div className="muted" style={{ marginBottom: 8 }}>Treffer: {(sortedItems.length || 0).toLocaleString('de-DE')} von {(meta.total || 0).toLocaleString('de-DE')}</div>
 
+      <div className="card" style={{ marginBottom: 12 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+          <label className="label" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, margin: 0 }}>
+            <input
+              type="checkbox"
+              checked={allVisibleSelected}
+              ref={(el) => { if (el) el.indeterminate = !allVisibleSelected && someVisibleSelected }}
+              onChange={(e) => toggleVisible(e.target.checked)}
+            />
+            Alle angezeigten markieren
+          </label>
+          <span className="badge">{selectedCount} markiert</span>
+          <select className="select admin-poi-bulk-select" value={bulkStatus} onChange={(e) => setBulkStatus(e.target.value)} disabled={!selectedCount || bulkBusy}>
+            <option value="pending">pending</option>
+            <option value="published">published</option>
+            <option value="rejected">rejected</option>
+          </select>
+          <button type="button" className="btn btn-secondary" onClick={bulkChangeStatus} disabled={!selectedCount || bulkBusy}>Status ändern</button>
+          <button type="button" className="btn btn-danger" onClick={bulkDeletePois} disabled={!selectedCount || bulkBusy}>Löschen</button>
+        </div>
+      </div>
+
       <div className="card admin-table-wrap">
         <table className="admin-poi-table">
           <thead>
             <tr>
+              <th style={{ width: 42 }}></th>
               <th>Name</th>
               <th>Status</th>
               <th>Kategorie</th>
@@ -192,6 +284,7 @@ export default function AdminPOIsClient() {
           <tbody>
             {sortedItems.map((poi) => (
               <tr key={poi.id}>
+                <td><input type="checkbox" checked={selectedIds.includes(poi.id)} onChange={() => toggleSelected(poi.id)} aria-label={`POI ${poi.title || poi.id} markieren`} /></td>
                 <td className="admin-poi-title-cell">{poi.slug ? <Link href={`/poi/${poi.slug}`} className="poi-inline-link admin-poi-title-link" title={poi.title}>{poi.title}</Link> : <span className="admin-poi-title-link" title={poi.title}>{poi.title}</span>}</td>
                 <td>
                   <div className="admin-poi-status-control">
