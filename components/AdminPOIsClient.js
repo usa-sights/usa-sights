@@ -244,7 +244,7 @@ export default function AdminPOIsClient() {
             <div>
               <label className="label">POIs pro Seite</label>
               <select className="select" value={pageSize} onChange={(e) => changePageSize(Number(e.target.value))}>
-                {[10, 20, 30, 40, 80, 100, 200, 300, 500, 1000].map((size) => (
+                {[10, 20, 30, 40, 80, 100, 200].map((size) => (
                   <option key={size} value={size}>{size}</option>
                 ))}
               </select>
