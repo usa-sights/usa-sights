@@ -2647,3 +2647,46 @@ pre.code { white-space: pre-wrap; background: #f8fafc; padding: 12px; border-rad
   .admin-poi-status-control { flex-wrap: wrap; }
   .admin-poi-title-cell { max-width: 180px; }
 }
+
+.admin-pois-toolbar {
+  display: grid;
+  grid-template-columns: minmax(0, 3fr) minmax(240px, 1fr);
+  gap: 12px;
+  align-items: stretch;
+  margin-bottom: 12px;
+}
+.admin-pois-filter-card,
+.admin-pois-bulk-card {
+  margin-bottom: 0;
+}
+.admin-pois-bulk-card {
+  display: flex;
+  align-items: stretch;
+}
+.admin-pois-bulk-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+}
+.admin-pois-bulk-actions .btn,
+.admin-pois-bulk-actions .select {
+  width: 100%;
+}
+.admin-pois-filter-card .admin-table-filters {
+  grid-template-columns: 120px minmax(180px, 1.2fr) 180px 160px 160px 150px 130px;
+}
+@media (max-width: 1100px) {
+  .admin-pois-toolbar {
+    grid-template-columns: 1fr;
+  }
+  .admin-pois-bulk-actions {
+    flex-direction: row;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .admin-pois-bulk-actions .btn,
+  .admin-pois-bulk-actions .select {
+    width: auto;
+  }
+}

@@ -30,6 +30,7 @@ export default function AdminPOIsClient() {
   const [message, setMessage] = useState('')
   const [page, setPage] = useState(1)
   const [meta, setMeta] = useState({ total: 0, limit: 50, has_more: false })
+  const [pageSize, setPageSize] = useState(50)
   const [sortKey, setSortKey] = useState('updated_at')
   const [selectedIds, setSelectedIds] = useState([])
   const [bulkStatus, setBulkStatus] = useState('published')
@@ -43,6 +44,7 @@ export default function AdminPOIsClient() {
     const nextUser = next.userQuery ?? userQuery
     const nextMissing = next.missing ?? missing
     const nextPage = next.page ?? page
+    const nextPageSize = next.pageSize ?? pageSize
 
     const params = new URLSearchParams({
       status: nextStatus,
@@ -51,15 +53,15 @@ export default function AdminPOIsClient() {
       state: nextState,
       user: nextUser,
       missing: nextMissing,
-      limit: '50',
-      offset: String((nextPage - 1) * 50),
+      limit: String(nextPageSize),
+      offset: String((nextPage - 1) * nextPageSize),
     })
     const data = await authFetchJson(`/api/admin/pois?${params.toString()}`)
     if (data.error) return setMessage(data.error)
 
     setItems(data.items || [])
     setSelectedIds((prev) => prev.filter((id) => (data.items || []).some((item) => item.id === id)))
-    setMeta({ total: data.total || 0, limit: data.limit || 50, has_more: !!data.has_more })
+    setMeta({ total: data.total || 0, limit: data.limit || nextPageSize, has_more: !!data.has_more })
   }
 
   useEffect(() => {
@@ -83,7 +85,7 @@ export default function AdminPOIsClient() {
     if (page !== 1) load({ page })
   }, [page])
 
-  const totalPages = Math.max(1, Math.ceil((meta.total || 0) / (meta.limit || 50)))
+  const totalPages = Math.max(1, Math.ceil((meta.total || 0) / (meta.limit || pageSize || 50)))
   const sortedItems = [...items].sort(sorters[sortKey] || sorters.updated_at)
   const selectedCount = selectedIds.length
   const allVisibleSelected = sortedItems.length > 0 && sortedItems.every((poi) => selectedIds.includes(poi.id))
@@ -91,7 +93,13 @@ export default function AdminPOIsClient() {
 
   function applyAndReset() {
     setPage(1)
-    load({ page: 1 })
+    load({ page: 1, pageSize })
+  }
+
+  function changePageSize(nextPageSize) {
+    setPageSize(nextPageSize)
+    setPage(1)
+    load({ page: 1, pageSize: nextPageSize })
   }
 
 
@@ -181,90 +189,100 @@ export default function AdminPOIsClient() {
       <h1>Admin / Alle POIs</h1>
       {message && <div className="notice">{message}</div>}
 
-      <div className="card" style={{ marginBottom: 12 }}>
-        <div className="admin-table-filters">
-          <div>
-            <label className="label">Status</label>
-            <select className="select" value={status} onChange={(e) => setStatus(e.target.value)}>
-              <option value="all">alle</option>
+      <div className="admin-pois-toolbar">
+        <div className="card admin-pois-filter-card">
+          <div className="admin-table-filters">
+            <div>
+              <label className="label">Status</label>
+              <select className="select" value={status} onChange={(e) => setStatus(e.target.value)}>
+                <option value="all">alle</option>
+                <option value="pending">pending</option>
+                <option value="published">published</option>
+                <option value="rejected">rejected</option>
+              </select>
+            </div>
+            <div>
+              <label className="label">Name</label>
+              <input className="input" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Titelsuche" />
+            </div>
+            <div>
+              <label className="label">Kategorie</label>
+              <select className="select" value={categoryId} onChange={(e) => setCategoryId(e.target.value)}>
+                <option value="">alle</option>
+                {categories.map((cat) => <option key={cat.id} value={cat.id}>{cat.name}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="label">Bundesstaat</label>
+              <select className="select" value={stateValue} onChange={(e) => setStateValue(e.target.value)}>
+                <option value="">alle</option>
+                {states.map((state) => <option key={state} value={state}>{state}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="label">Fehlt</label>
+              <select className="select" value={missing} onChange={(e) => setMissing(e.target.value)}>
+                <option value="">nichts</option>
+                <option value="images">Bilder</option>
+                <option value="category">Kategorie</option>
+                <option value="description">Beschreibung</option>
+                <option value="reviews">Reviews</option>
+              </select>
+            </div>
+            <div>
+              <label className="label">Sortierung</label>
+              <select className="select" value={sortKey} onChange={(e) => setSortKey(e.target.value)}>
+                <option value="updated_at">Geändert</option>
+                <option value="created_at">Erstellt</option>
+                <option value="title">Name</option>
+                <option value="status">Status</option>
+                <option value="category">Kategorie</option>
+                <option value="city">Ort</option>
+                <option value="state">Bundesstaat</option>
+              </select>
+            </div>
+            <div>
+              <label className="label">POIs pro Seite</label>
+              <select className="select" value={pageSize} onChange={(e) => changePageSize(Number(e.target.value))}>
+                {[10, 20, 30, 40, 80, 100, 200, 300, 500, 1000].map((size) => (
+                  <option key={size} value={size}>{size}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+          <div style={{ display:'flex', gap:8, marginTop:10 }}>
+            <button className="btn btn-secondary" onClick={applyAndReset}>Anwenden</button>
+            <button className="btn btn-secondary" onClick={() => {
+              setStatus('all'); setQ(''); setCategoryId(''); setStateValue(''); setUserQuery(''); setSortKey('updated_at'); setMissing(''); setPage(1)
+              setTimeout(() => load({ status:'all', q:'', categoryId:'', stateValue:'', userQuery:'', missing:'', page:1, pageSize }), 0)
+            }}>Reset</button>
+          </div>
+        </div>
+
+        <div className="card admin-pois-bulk-card">
+          <div className="admin-pois-bulk-actions">
+            <label className="label" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, margin: 0 }}>
+              <input
+                type="checkbox"
+                checked={allVisibleSelected}
+                ref={(el) => { if (el) el.indeterminate = !allVisibleSelected && someVisibleSelected }}
+                onChange={(e) => toggleVisible(e.target.checked)}
+              />
+              Alle angezeigten markieren
+            </label>
+            <span className="badge">Anzahl markierte: {selectedCount}</span>
+            <select className="select admin-poi-bulk-select" value={bulkStatus} onChange={(e) => setBulkStatus(e.target.value)} disabled={!selectedCount || bulkBusy}>
               <option value="pending">pending</option>
               <option value="published">published</option>
               <option value="rejected">rejected</option>
             </select>
+            <button type="button" className="btn btn-secondary" onClick={bulkChangeStatus} disabled={!selectedCount || bulkBusy}>Status ändern</button>
+            <button type="button" className="btn btn-danger" onClick={bulkDeletePois} disabled={!selectedCount || bulkBusy}>Löschen</button>
           </div>
-          <div>
-            <label className="label">Name</label>
-            <input className="input" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Titelsuche" />
-          </div>
-          <div>
-            <label className="label">Kategorie</label>
-            <select className="select" value={categoryId} onChange={(e) => setCategoryId(e.target.value)}>
-              <option value="">alle</option>
-              {categories.map((cat) => <option key={cat.id} value={cat.id}>{cat.name}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className="label">Bundesstaat</label>
-            <select className="select" value={stateValue} onChange={(e) => setStateValue(e.target.value)}>
-              <option value="">alle</option>
-              {states.map((state) => <option key={state} value={state}>{state}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className="label">Fehlt</label>
-            <select className="select" value={missing} onChange={(e) => setMissing(e.target.value)}>
-              <option value="">nichts</option>
-              <option value="images">Bilder</option>
-              <option value="category">Kategorie</option>
-              <option value="description">Beschreibung</option>
-              <option value="reviews">Reviews</option>
-            </select>
-          </div>
-          <div>
-            <label className="label">Sortierung</label>
-            <select className="select" value={sortKey} onChange={(e) => setSortKey(e.target.value)}>
-              <option value="updated_at">Geändert</option>
-              <option value="created_at">Erstellt</option>
-              <option value="title">Name</option>
-              <option value="status">Status</option>
-              <option value="category">Kategorie</option>
-              <option value="city">Ort</option>
-              <option value="state">Bundesstaat</option>
-            </select>
-          </div>
-        </div>
-        <div style={{ display:'flex', gap:8, marginTop:10 }}>
-          <button className="btn btn-secondary" onClick={applyAndReset}>Anwenden</button>
-          <button className="btn btn-secondary" onClick={() => {
-            setStatus('all'); setQ(''); setCategoryId(''); setStateValue(''); setUserQuery(''); setSortKey('updated_at'); setMissing(''); setPage(1)
-            setTimeout(() => load({ status:'all', q:'', categoryId:'', stateValue:'', userQuery:'', missing:'', page:1 }), 0)
-          }}>Reset</button>
         </div>
       </div>
 
       <div className="muted" style={{ marginBottom: 8 }}>Treffer: {(sortedItems.length || 0).toLocaleString('de-DE')} von {(meta.total || 0).toLocaleString('de-DE')}</div>
-
-      <div className="card" style={{ marginBottom: 12 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-          <label className="label" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, margin: 0 }}>
-            <input
-              type="checkbox"
-              checked={allVisibleSelected}
-              ref={(el) => { if (el) el.indeterminate = !allVisibleSelected && someVisibleSelected }}
-              onChange={(e) => toggleVisible(e.target.checked)}
-            />
-            Alle angezeigten markieren
-          </label>
-          <span className="badge">{selectedCount} markiert</span>
-          <select className="select admin-poi-bulk-select" value={bulkStatus} onChange={(e) => setBulkStatus(e.target.value)} disabled={!selectedCount || bulkBusy}>
-            <option value="pending">pending</option>
-            <option value="published">published</option>
-            <option value="rejected">rejected</option>
-          </select>
-          <button type="button" className="btn btn-secondary" onClick={bulkChangeStatus} disabled={!selectedCount || bulkBusy}>Status ändern</button>
-          <button type="button" className="btn btn-danger" onClick={bulkDeletePois} disabled={!selectedCount || bulkBusy}>Löschen</button>
-        </div>
-      </div>
 
       <div className="card admin-table-wrap">
         <table className="admin-poi-table">
