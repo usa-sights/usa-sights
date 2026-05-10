@@ -2690,3 +2690,20 @@ pre.code { white-space: pre-wrap; background: #f8fafc; padding: 12px; border-rad
     width: auto;
   }
 }
+
+/* v13 admin POIs filter responsive wrap only */
+.admin-pois-filter-card .admin-table-filters {
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+}
+.admin-pois-filter-card .admin-table-filters > div {
+  min-width: 0;
+}
+.admin-pois-filter-card .admin-table-filters .input,
+.admin-pois-filter-card .admin-table-filters .select {
+  width: 100%;
+}
+@media (max-width: 520px) {
+  .admin-pois-filter-card .admin-table-filters {
+    grid-template-columns: 1fr;
+  }
+}
