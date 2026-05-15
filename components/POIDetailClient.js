@@ -172,6 +172,26 @@ export default function POIDetailClient({ slug }) {
         <div className="badge">{poi.state || 'Unbekannt'}</div>
       </div>
 
+      <div className="card poi-quick-actions-card">
+        <div className="poi-quick-actions-copy">
+          <h2>Schnellaktionen</h2>
+          <p>POI speichern oder direkt mit deiner bevorzugten Karten-App navigieren.</p>
+        </div>
+        <div className="poi-action-grid" aria-label="Schnellaktionen für diesen POI">
+          <button className={`btn ${isFavorite ? '' : 'btn-secondary'} favorite-btn`} onClick={toggleFavorite} disabled={!favoriteReady}>
+            <span className={`favorite-heart ${isFavorite ? 'active' : ''}`}>{isFavorite ? '♥' : '♡'}</span>
+            <span>{isFavorite ? 'Favorit gespeichert' : 'Favorit markieren'}</span>
+          </button>
+          {navigationButtons.map((button) => (
+            <a key={button.key} className="btn btn-secondary poi-action-btn" href={button.url} target="_blank" rel="noreferrer">
+              {button.label}
+            </a>
+          ))}
+        </div>
+        <AdminEditHint poiId={poi.id} />
+        {message ? <p style={{ flexBasis: '100%', margin: '4px 0 0' }}>{message}</p> : null}
+      </div>
+
       <POIGallery images={images} poiTitle={poi.title} />
 
       <div className="card" style={{ marginTop: 16 }}>
@@ -215,25 +235,6 @@ export default function POIDetailClient({ slug }) {
         </Section>
         </div>
       ) : null}
-
-      <div className="card" style={{ marginTop: 16 }}>
-        <button className={`btn ${isFavorite ? '' : 'btn-secondary'} favorite-btn`} onClick={toggleFavorite} disabled={!favoriteReady}>
-          <span className={`favorite-heart ${isFavorite ? 'active' : ''}`}>{isFavorite ? '♥' : '♡'}</span>
-          <span>{isFavorite ? 'Als Favorit gespeichert' : 'Favorit'}</span>
-        </button>
-        <AdminEditHint poiId={poi.id} />
-        {message ? <p>{message}</p> : null}
-
-        {navigationButtons.length ? (
-          <div className="poi-action-grid" aria-label="Navigation zum POI">
-            {navigationButtons.map((button) => (
-              <a key={button.key} className="btn btn-secondary poi-action-btn" href={button.url} target="_blank" rel="noreferrer">
-                {button.label}
-              </a>
-            ))}
-          </div>
-        ) : null}
-      </div>
 
       {currentUserId ? (
         <UserPOIImageUploader poiId={poi.id} isAdmin={currentUserRole === 'admin'} title="Fotos zu diesem POI beitragen" onUploaded={() => { loadPoi(); setTimeout(() => loadPoi(), 350); setTimeout(() => loadPoi(), 1200) }} />

@@ -22,7 +22,7 @@ button { font: inherit; }
 .large-submit-map { height: 84vh; width: 100%; }
 .explore-shell { display: grid; grid-template-rows: auto 1fr; min-height: calc(100vh - 72px); }
 .explore-filters { background: rgba(255,255,255,0.96); border-bottom: 1px solid #e2e8f0; backdrop-filter: blur(6px); }
-.explore-filters-inner { max-width: 1260px; margin: 0 auto; padding: 10px 14px; display: grid; gap: 10px; grid-template-columns: minmax(0,1.4fr) minmax(220px,.8fr); align-items: flex-end; }
+.explore-filters-inner { max-width: 1260px; margin: 0 auto; padding: 10px 14px; display: grid; gap: 10px; grid-template-columns: minmax(0,1.4fr) minmax(220px,.8fr); align-items: end; }
 .image-grid { display: grid; gap: 12px; grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .image-frame { width: 100%; height: 260px; border-radius: 12px; overflow: hidden; background: #e5e7eb; display: flex; align-items: center; justify-content: center; }
 .image-grid img, .poi-hero img { width: 100%; height: 100%; object-fit: contain; display: block; background: #e5e7eb; }
@@ -671,7 +671,7 @@ pre.code { white-space: pre-wrap; background: #f8fafc; padding: 12px; border-rad
   display: grid;
   grid-template-columns: 120px 1.4fr 220px 180px 220px 180px;
   gap: 10px;
-  align-items: flex-end;
+  align-items: end;
 }
 .admin-table-wrap {
   overflow: auto;
@@ -2807,7 +2807,7 @@ pre.code { white-space: pre-wrap; background: #f8fafc; padding: 12px; border-rad
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   gap: 10px;
-  align-items: flex-end;
+  align-items: end;
   margin-top: 14px;
   padding: 14px;
   border: 1px solid #e2e8f0;
@@ -2951,4 +2951,18 @@ pre.code { white-space: pre-wrap; background: #f8fafc; padding: 12px; border-rad
   .home-hero { padding: 48px 18px 42px; }
   .home-hero-copy h1 { font-size: clamp(2.45rem, 12vw, 4rem); max-width: 92vw; }
   .travel-tools-grid { grid-template-columns: 1fr; }
+}
+
+
+/* v3 safe POI detail quick actions: position navigation controls prominently without changing POI logic. */
+.poi-quick-actions-card { margin-top: 16px; display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap; }
+.poi-quick-actions-copy { min-width: 220px; flex: 1 1 260px; }
+.poi-quick-actions-copy h2 { margin: 0 0 4px; font-size: 1.15rem; }
+.poi-quick-actions-copy p { margin: 0; color: #64748b; }
+.poi-action-grid { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.poi-action-btn { text-decoration: none; }
+@media (max-width: 720px) {
+  .poi-quick-actions-card { align-items: stretch; }
+  .poi-action-grid, .poi-quick-actions-card .favorite-btn { width: 100%; }
+  .poi-action-grid .btn, .poi-quick-actions-card .favorite-btn { justify-content: center; flex: 1 1 100%; }
 }
