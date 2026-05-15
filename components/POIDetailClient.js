@@ -9,6 +9,7 @@ import AffiliateSmartCards from '@/components/AffiliateSmartCards'
 import UserPOIImageUploader from '@/components/UserPOIImageUploader'
 import { buildSmartAffiliateCards } from '@/lib/affiliateSmart'
 import { normalizeEditorialRecord, normalizeList, normalizeFamilyFriendly } from '@/lib/poiEditorial'
+import { getNavigationButtons } from '@/lib/map/poiUtils'
 
 const hasContent = (v) => typeof v === 'string' ? v.trim().length > 0 : !!v
 const asList = (v) => normalizeList(v)
@@ -151,6 +152,8 @@ export default function POIDetailClient({ slug }) {
   const tags = asList(editorial?.suggested_tags_json)
   const afterDescription = affiliateBlocks.filter((x) => x.placement === 'after_description')
   const afterVisitInfo = affiliateBlocks.filter((x) => x.placement === 'after_visit_info')
+  const navigationButtons = getNavigationButtons(poi, true)
+
   const hasEditorial =
     highlights.length ||
     niceToKnow.length ||
@@ -220,6 +223,16 @@ export default function POIDetailClient({ slug }) {
         </button>
         <AdminEditHint poiId={poi.id} />
         {message ? <p>{message}</p> : null}
+
+        {navigationButtons.length ? (
+          <div className="poi-action-grid" aria-label="Navigation zum POI">
+            {navigationButtons.map((button) => (
+              <a key={button.key} className="btn btn-secondary poi-action-btn" href={button.url} target="_blank" rel="noreferrer">
+                {button.label}
+              </a>
+            ))}
+          </div>
+        ) : null}
       </div>
 
       {currentUserId ? (

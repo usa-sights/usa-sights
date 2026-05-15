@@ -2,7 +2,7 @@ import PublicDiscoverySection from '@/components/PublicDiscoverySection'
 import Link from 'next/link'
 import dynamic from 'next/dynamic'
 import HomeTutorialTrigger from '@/components/HomeTutorialTrigger'
-import { MapPinned, Sparkles, Route, Binoculars, Mountain, Camera, Building2, Lightbulb, Users, CheckCircle2 } from 'lucide-react'
+import { MapPinned, Sparkles, Route, Binoculars, Mountain, Camera, Building2, Lightbulb, Users, CheckCircle2, Heart, FileDown, Navigation } from 'lucide-react'
 
 const HomeMapSection = dynamic(() => import('@/components/HomeMapSection'), { ssr: false })
 const HomeUserStats = dynamic(() => import('@/components/HomeUserStats'), { ssr: false })
@@ -18,8 +18,14 @@ const categories = [
 
 const steps = [
   'Spots suchen, filtern oder direkt auf der Karte entdecken.',
-  'Route planen und interessante Orte für später merken.',
-  'Eigene Lieblingsorte vorschlagen und andere inspirieren.',
+  'Favoriten markieren und als persönliche Sammlung speichern.',
+  'Unterwegs direkt per Google Maps oder Apple Karten zum POI navigieren.',
+]
+
+const travelTools = [
+  { title: 'Favoriten merken', text: 'Interessante POIs speichern und später gesammelt wiederfinden.', icon: Heart },
+  { title: 'GPX & KML Export', text: 'Favoriten als Datei für GPS, Google Earth oder Routenplanung herunterladen.', icon: FileDown },
+  { title: 'Direkt navigieren', text: 'Aus Karte und POI-Ansicht direkt zu Google Maps oder Apple Karten springen.', icon: Navigation },
 ]
 
 export const metadata = {
@@ -39,7 +45,7 @@ export default function Home() {
         <div className="container hero-layout home-hero-layout">
           <div className="hero-copy home-hero-copy">
             <div className="eyebrow"><Sparkles size={16} /> Community-Guide für USA-Reisen</div>
-            <h1>USA entdecken – Spot für Spot.</h1>
+            <h1>USA entdecken. Spots finden.</h1>
             <p className="hero-lead">
               Finde Sehenswürdigkeiten, Viewpoints, Scenic Drives und Geheimtipps für deinen nächsten USA-Roadtrip – empfohlen von echten Reisenden.
             </p>
@@ -50,8 +56,8 @@ export default function Home() {
             </div>
             <div className="hero-proof">
               <span><CheckCircle2 size={16} /> Schnell stöbern</span>
-              <span><CheckCircle2 size={16} /> Auf der Karte planen</span>
-              <span><CheckCircle2 size={16} /> Community-Tipps teilen</span>
+              <span><CheckCircle2 size={16} /> Favoriten merken</span>
+              <span><CheckCircle2 size={16} /> Direkt navigieren</span>
             </div>
           </div>
           <HomeUserStats />
@@ -93,6 +99,25 @@ export default function Home() {
               <h3>{title}</h3>
               <p>{text}</p>
             </Link>
+          ))}
+        </div>
+      </section>
+
+
+      <section className="container travel-tools-section">
+        <div className="section-heading">
+          <div>
+            <p className="section-kicker">Für unterwegs</p>
+            <h2>Alles dabei, wenn aus Inspiration eine Route wird.</h2>
+          </div>
+        </div>
+        <div className="travel-tools-grid">
+          {travelTools.map(({ title, text, icon: Icon }) => (
+            <div className="travel-tool-card" key={title}>
+              <Icon size={24} />
+              <h3>{title}</h3>
+              <p>{text}</p>
+            </div>
           ))}
         </div>
       </section>

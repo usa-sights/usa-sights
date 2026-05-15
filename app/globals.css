@@ -2934,3 +2934,21 @@ pre.code { white-space: pre-wrap; background: #f8fafc; padding: 12px; border-rad
   .section-heading, .community-cta-inner, .compact-footer { align-items: stretch; flex-direction: column; }
   .home-hero { padding-top: 54px; }
 }
+
+/* v120 homepage readability and traveler tools polish */
+.home-hero { padding-top: 62px; padding-bottom: 50px; }
+.home-hero-copy h1 { font-size: clamp(2.65rem, 5.15vw, 4.9rem); line-height: .95; letter-spacing: -.045em; max-width: 650px; }
+.hero-lead { max-width: 680px; }
+.travel-tools-section { margin-top: 42px; }
+.travel-tools-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+.travel-tool-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 22px; padding: 22px; box-shadow: 0 18px 45px rgba(15,23,42,.08); }
+.travel-tool-card svg { color: #00796b; margin-bottom: 12px; }
+.travel-tool-card h3 { margin: 0 0 8px; font-size: 1.12rem; }
+.travel-tool-card p { margin: 0; color: #334155; line-height: 1.6; }
+.poi-action-grid { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 14px; }
+.poi-action-btn { text-decoration: none; }
+@media (max-width: 900px) {
+  .home-hero { padding: 48px 18px 42px; }
+  .home-hero-copy h1 { font-size: clamp(2.45rem, 12vw, 4rem); max-width: 92vw; }
+  .travel-tools-grid { grid-template-columns: 1fr; }
+}
