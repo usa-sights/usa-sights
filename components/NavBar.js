@@ -6,9 +6,9 @@ import { createBrowserSupabaseClient } from '@/utils/supabase/client'
 import { authFetchJson } from '@/utils/authFetch'
 import { Menu, Map, Tags, PlusSquare, LogIn, UserPlus, Heart, LayoutDashboard, FolderPen, PencilLine, LogOut, FolderOpenDot, Compass, CircleUserRound, Trophy, Wrench } from 'lucide-react'
 
-function MenuLink({ href, icon: Icon, children, onClick, badge = null, vertical = false }) {
+function MenuLink({ href, icon: Icon, children, onClick, badge = null, vertical = false, cta = false }) {
   return (
-    <Link href={href} className={vertical ? 'admin-rail-link' : 'nav-link'} onClick={onClick}>
+    <Link href={href} className={vertical ? 'admin-rail-link' : cta ? 'nav-link nav-cta' : 'nav-link'} onClick={onClick}>
       <Icon size={18} />
       <span>{children}</span>
       {badge !== null ? <span className="badge" style={{ marginLeft: 6 }}>{badge}</span> : null}
@@ -272,9 +272,11 @@ export default function NavBar() {
           </Link>
 
           <div className="desktop-nav">
+            <MenuLink href="/explore" icon={Compass}>Entdecken</MenuLink>
+            <MenuLink href="/#karte" icon={Map}>Karte</MenuLink>
             <MenuLink href="/categories" icon={Tags}>Kategorien</MenuLink>
             {publicRankingVisible ? <MenuLink href="/ranking" icon={Trophy}>Ranking</MenuLink> : null}
-            <MenuLink href="/submit-poi" icon={PlusSquare}>POI vorschlagen</MenuLink>
+            <MenuLink href="/submit-poi" icon={PlusSquare}>Spot vorschlagen</MenuLink>
 
             {user ? (
               <>
@@ -294,7 +296,7 @@ export default function NavBar() {
             ) : (
               <>
                 <MenuLink href="/login" icon={LogIn}>Login</MenuLink>
-                <MenuLink href="/register" icon={UserPlus}>Registrieren</MenuLink>
+                <MenuLink href="/register" icon={UserPlus} cta>Kostenlos mitmachen</MenuLink>
               </>
             )}
           </div>
@@ -308,9 +310,11 @@ export default function NavBar() {
           <div className="mobile-panel">
             <div className="mobile-panel-inner">
               <div className="section-title">Entdecken</div>
+              <MenuLink href="/explore" icon={Compass} onClick={() => setOpen(false)}>Entdecken</MenuLink>
+              <MenuLink href="/#karte" icon={Map} onClick={() => setOpen(false)}>Karte</MenuLink>
               <MenuLink href="/categories" icon={Tags} onClick={() => setOpen(false)}>Kategorien</MenuLink>
               {publicRankingVisible ? <MenuLink href="/ranking" icon={Trophy} onClick={() => setOpen(false)}>Ranking</MenuLink> : null}
-              <MenuLink href="/submit-poi" icon={PlusSquare} onClick={() => setOpen(false)}>POI vorschlagen</MenuLink>
+              <MenuLink href="/submit-poi" icon={PlusSquare} onClick={() => setOpen(false)}>Spot vorschlagen</MenuLink>
 
               {user ? (
                 <>
@@ -347,7 +351,7 @@ export default function NavBar() {
                 <>
                   <div className="section-title">Konto</div>
                   <MenuLink href="/login" icon={LogIn} onClick={() => setOpen(false)}>Login</MenuLink>
-                  <MenuLink href="/register" icon={UserPlus} onClick={() => setOpen(false)}>Registrieren</MenuLink>
+                  <MenuLink href="/register" icon={UserPlus} onClick={() => setOpen(false)} cta>Kostenlos mitmachen</MenuLink>
                 </>
               )}
             </div>

@@ -81,7 +81,7 @@ export default function HomeMapSection() {
   const resultLabel = useMemo(() => `${pois.length.toLocaleString('de-DE')} Treffer im aktuellen Kartenausschnitt`, [pois.length])
 
   return (
-    <section style={{ width: '100%' }}>
+    <section id="karte" style={{ width: '100%' }}>
       <div className="container" style={{ paddingBottom: 12 }}>
         <div className="card home-map-search-card">
           <div className="home-map-search">
