@@ -29,8 +29,8 @@ export default function AdminPOIsClient() {
   const [missing, setMissing] = useState('')
   const [message, setMessage] = useState('')
   const [page, setPage] = useState(1)
-  const [meta, setMeta] = useState({ total: 0, limit: 50, has_more: false })
-  const [pageSize, setPageSize] = useState(50)
+  const [meta, setMeta] = useState({ total: 0, limit: 10, has_more: false })
+  const [pageSize, setPageSize] = useState(10)
   const [sortKey, setSortKey] = useState('updated_at')
   const [selectedIds, setSelectedIds] = useState([])
   const [bulkStatus, setBulkStatus] = useState('published')
@@ -85,7 +85,7 @@ export default function AdminPOIsClient() {
     if (page !== 1) load({ page })
   }, [page])
 
-  const totalPages = Math.max(1, Math.ceil((meta.total || 0) / (meta.limit || pageSize || 50)))
+  const totalPages = Math.max(1, Math.ceil((meta.total || 0) / (meta.limit || pageSize || 10)))
   const sortedItems = [...items].sort(sorters[sortKey] || sorters.updated_at)
   const selectedCount = selectedIds.length
   const allVisibleSelected = sortedItems.length > 0 && sortedItems.every((poi) => selectedIds.includes(poi.id))

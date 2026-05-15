@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { createBrowserSupabaseClient } from '@/utils/supabase/client'
 import AdminEditHint from '@/components/AdminEditHint'
 import POIGallery from '@/components/POIGallery'
-import POIReviews from '@/components/POIReviews'
+import POIReviews, { POIReviewOverview } from '@/components/POIReviews'
 import AffiliateSmartCards from '@/components/AffiliateSmartCards'
 import UserPOIImageUploader from '@/components/UserPOIImageUploader'
 import { buildSmartAffiliateCards } from '@/lib/affiliateSmart'
@@ -37,6 +37,7 @@ export default function POIDetailClient({ slug }) {
   const [favoriteReady, setFavoriteReady] = useState(false)
   const [currentUserId, setCurrentUserId] = useState(null)
   const [currentUserRole, setCurrentUserRole] = useState('user')
+  const [reviewRefreshKey, setReviewRefreshKey] = useState(0)
 
   const loadPoi = useCallback(async () => {
     const res = await fetch(`/api/poi-public?slug=${encodeURIComponent(slug)}&t=${Date.now()}`, { cache: 'no-store' })
@@ -162,8 +163,11 @@ export default function POIDetailClient({ slug }) {
   return (
     <main className="container">
       <h1>{poi.title}</h1>
-      <div className="badge">{poi.categories?.name || 'Ohne Kategorie'}</div>
-      <div className="badge">{poi.state || 'Unbekannt'}</div>
+      <div className="poi-title-meta-row">
+        <POIReviewOverview poiId={poi.id} refreshKey={reviewRefreshKey} isLoggedIn={!!currentUserId} />
+        <div className="badge">{poi.categories?.name || 'Ohne Kategorie'}</div>
+        <div className="badge">{poi.state || 'Unbekannt'}</div>
+      </div>
 
       <POIGallery images={images} poiTitle={poi.title} />
 
@@ -227,7 +231,7 @@ export default function POIDetailClient({ slug }) {
         </div>
       )}
 
-      <POIReviews poiId={poi.id} onChanged={loadPoi} />
+      <POIReviews poiId={poi.id} onChanged={() => { setReviewRefreshKey((x) => x + 1); loadPoi() }} />
     </main>
   )
 }

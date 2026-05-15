@@ -2707,3 +2707,150 @@ pre.code { white-space: pre-wrap; background: #f8fafc; padding: 12px; border-rad
     grid-template-columns: 1fr;
   }
 }
+
+/* v15 POI review overview and filters */
+.poi-review-overview {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  margin: -4px 0 10px;
+  font-size: 1rem;
+  z-index: 3;
+}
+.poi-review-overview-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: inherit;
+  text-decoration: none;
+  border-bottom: 1px dotted #94a3b8;
+  padding-bottom: 2px;
+}
+.poi-review-overview-trigger:hover {
+  color: #0f766e;
+}
+.rating-stars-compact {
+  gap: 1px;
+  vertical-align: middle;
+}
+.rating-stars-compact .rating-star {
+  font-size: 16px;
+  padding: 0;
+}
+.poi-review-popover {
+  position: absolute;
+  left: 0;
+  top: calc(100% + 10px);
+  width: min(360px, calc(100vw - 32px));
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  box-shadow: 0 18px 48px rgba(15,23,42,.18);
+  padding: 16px;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-4px);
+  transition: opacity .16s ease, transform .16s ease;
+}
+.poi-review-overview:hover .poi-review-popover,
+.poi-review-overview:focus-within .poi-review-popover {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0);
+}
+.poi-review-popover-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.poi-rating-breakdown {
+  display: grid;
+  gap: 8px;
+}
+.poi-rating-breakdown-row {
+  display: grid;
+  grid-template-columns: 68px minmax(90px, 1fr) 42px;
+  align-items: center;
+  gap: 8px;
+  color: #0f172a;
+  text-decoration: none;
+  font-size: .95rem;
+}
+.poi-rating-breakdown-row:hover {
+  color: #0f766e;
+}
+.poi-rating-bar {
+  height: 18px;
+  border: 1px solid #cbd5e1;
+  border-radius: 5px;
+  overflow: hidden;
+  background: #f8fafc;
+}
+.poi-rating-bar span {
+  display: block;
+  height: 100%;
+  background: #f59e0b;
+}
+.poi-review-all-link {
+  display: inline-flex;
+  margin-top: 12px;
+  color: #0f766e;
+  text-decoration: none;
+  font-weight: 700;
+}
+.poi-review-all-link:hover {
+  text-decoration: underline;
+}
+.poi-review-filter-card {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+  align-items: end;
+  margin-top: 14px;
+  padding: 14px;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  background: #f8fafc;
+}
+.poi-review-filter-card .btn {
+  min-height: 42px;
+}
+@media (max-width: 520px) {
+  .poi-review-overview {
+    display: flex;
+    width: 100%;
+  }
+  .poi-review-overview-trigger {
+    flex-wrap: wrap;
+  }
+  .poi-review-popover {
+    left: 0;
+    right: auto;
+  }
+}
+
+/* v16 POI review overview polish: align rating, empty state actions and badges without changing data flow. */
+.poi-title-meta-row{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  flex-wrap:wrap;
+  margin:2px 0 12px;
+}
+.poi-title-meta-row .badge{margin:0;align-self:center}
+.poi-title-meta-row .poi-review-overview{margin:0;align-self:center;min-height:32px}
+.poi-review-overview-empty{gap:8px;flex-wrap:wrap;color:#475569}
+.poi-review-empty-text{font-weight:700;color:#334155}
+.poi-review-action-link{display:inline-flex;align-items:center;min-height:30px;border-radius:999px;padding:5px 10px;background:#ecfdf5;color:#047857;text-decoration:none;font-weight:800;border:1px solid #a7f3d0}
+.poi-review-action-link:hover{background:#d1fae5;text-decoration:none}
+.poi-title-meta-row .poi-review-overview-trigger{min-height:30px;padding:0 0 1px;line-height:1.2}
+.poi-title-meta-row:hover .poi-review-popover{opacity:1;pointer-events:auto;transform:translateY(0)}
+.poi-review-popover::before{content:"";position:absolute;left:0;right:0;top:-12px;height:12px;background:transparent}
+.poi-reply-toggle{margin-top:12px;border:0;background:transparent;color:#0f766e;font-weight:800;padding:0;cursor:pointer;text-decoration:none}
+.poi-reply-toggle:hover{text-decoration:underline}
+.poi-reply-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.poi-reply-cancel{border:0;background:transparent;color:#64748b;font-weight:800;cursor:pointer;padding:8px 0}
+.poi-reply-cancel:hover{color:#0f172a;text-decoration:underline}
+@media (max-width:700px){.poi-title-meta-row{align-items:flex-start;gap:8px}.poi-title-meta-row .poi-review-overview{width:100%;min-height:0}.poi-review-overview-empty{align-items:flex-start}.poi-review-popover{left:0;width:min(340px,calc(100vw - 32px))}}

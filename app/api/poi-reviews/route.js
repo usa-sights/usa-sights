@@ -1,5 +1,5 @@
 import { createSupabaseAdminClient } from '@/utils/supabase/admin'
-import { calculateReviewStats, normalizeReviewRow } from '@/lib/poiReviews'
+import { calculateRatingDistribution, calculateReviewStats, isReviewVerified, normalizeReviewRow, reviewHasVerificationInfo } from '@/lib/poiReviews'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -10,6 +10,44 @@ function noStoreHeaders() {
     Pragma: 'no-cache',
     Expires: '0',
   }
+}
+
+function inPeriod(item, period) {
+  if (!period || period === 'all') return true
+  const created = new Date(item.created_at || item.updated_at || 0).getTime()
+  if (!created) return false
+  const now = Date.now()
+  const days = period === '30d' ? 30 : period === '90d' ? 90 : period === '365d' ? 365 : 0
+  if (!days) return true
+  return created >= now - days * 24 * 60 * 60 * 1000
+}
+
+function applyReviewFilters(items, searchParams) {
+  const stars = Number(searchParams.get('stars') || searchParams.get('rating') || 0)
+  const textFilter = searchParams.get('text') || 'all'
+  const period = searchParams.get('period') || 'all'
+  const verified = searchParams.get('verified') || 'all'
+  const sort = searchParams.get('sort') || 'newest'
+
+  let filtered = [...items]
+  if (Number.isFinite(stars) && stars >= 1 && stars <= 5) {
+    filtered = filtered.filter((item) => Math.round(Number(item.rating || 0)) === stars)
+  }
+  if (textFilter === 'with') filtered = filtered.filter((item) => String(item.review_text || '').trim())
+  if (textFilter === 'without') filtered = filtered.filter((item) => !String(item.review_text || '').trim())
+  filtered = filtered.filter((item) => inPeriod(item, period))
+
+  if (verified === 'yes') filtered = filtered.filter((item) => reviewHasVerificationInfo(item) && isReviewVerified(item))
+  if (verified === 'no') filtered = filtered.filter((item) => reviewHasVerificationInfo(item) && !isReviewVerified(item))
+
+  filtered.sort((a, b) => {
+    if (sort === 'oldest') return new Date(a.created_at || 0) - new Date(b.created_at || 0)
+    if (sort === 'best') return Number(b.rating || 0) - Number(a.rating || 0) || new Date(b.created_at || 0) - new Date(a.created_at || 0)
+    if (sort === 'worst') return Number(a.rating || 0) - Number(b.rating || 0) || new Date(b.created_at || 0) - new Date(a.created_at || 0)
+    return new Date(b.created_at || b.updated_at || 0) - new Date(a.created_at || a.updated_at || 0)
+  })
+
+  return filtered
 }
 
 export async function GET(req) {
@@ -49,7 +87,7 @@ export async function GET(req) {
     profileMap = new Map((profileRes.data || []).map((row) => [row.id, row.name || row.email || 'Nutzer']))
   }
 
-  const items = (reviews || [])
+  const allItems = (reviews || [])
     .map((review) => normalizeReviewRow(review, profileMap.get(review.user_id) || 'Nutzer'))
     .map((review) => ({
       ...review,
@@ -63,10 +101,20 @@ export async function GET(req) {
         })),
     }))
 
+  const items = applyReviewFilters(allItems, searchParams)
+  const allStats = calculateReviewStats(allItems)
   const { count, average } = calculateReviewStats(items)
   const opinionCount = items.filter((item) => String(item.review_text || '').trim()).length
 
-  return Response.json({ items, count, average, opinion_count: opinionCount }, {
+  return Response.json({
+    items,
+    count,
+    average,
+    opinion_count: opinionCount,
+    total_count: allStats.count,
+    total_average: allStats.average,
+    distribution: calculateRatingDistribution(allItems),
+  }, {
     headers: noStoreHeaders(),
   })
 }
