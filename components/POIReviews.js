@@ -5,7 +5,7 @@ import { createBrowserSupabaseClient } from '@/utils/supabase/client'
 import { authFetchJson } from '@/utils/authFetch'
 import { calculateReviewStats, normalizeReviewRow } from '@/lib/poiReviews'
 
-const defaultFilters = { stars: 'all', period: 'all', text: 'all', verified: 'all', sort: 'newest' }
+const defaultFilters = { stars: 'all', period: 'all', text: 'all', sort: 'newest' }
 
 function Stars({ value, onChange = null, compact = false }) {
   const [hoverValue, setHoverValue] = useState(0)
@@ -41,7 +41,6 @@ function readFiltersFromUrl() {
     stars: params.get('review_stars') || 'all',
     period: params.get('review_period') || 'all',
     text: params.get('review_text') || 'all',
-    verified: params.get('review_verified') || 'all',
     sort: params.get('review_sort') || 'newest',
   }
 }
@@ -53,7 +52,6 @@ function writeFiltersToUrl(filters, withHash = false) {
     ['review_stars', filters.stars, 'all'],
     ['review_period', filters.period, 'all'],
     ['review_text', filters.text, 'all'],
-    ['review_verified', filters.verified, 'all'],
     ['review_sort', filters.sort, 'newest'],
   ]
   for (const [key, value, fallback] of mapping) {
@@ -69,7 +67,6 @@ function buildReviewQuery(poiId, filters) {
   if (filters.stars !== 'all') params.set('stars', filters.stars)
   if (filters.period !== 'all') params.set('period', filters.period)
   if (filters.text !== 'all') params.set('text', filters.text)
-  if (filters.verified !== 'all') params.set('verified', filters.verified)
   if (filters.sort !== 'newest') params.set('sort', filters.sort)
   return params
 }
@@ -311,14 +308,6 @@ export default function POIReviews({ poiId, onChanged = null }) {
             <option value="all">Alle</option>
             <option value="with">Mit Kommentar</option>
             <option value="without">Ohne Kommentar</option>
-          </select>
-        </div>
-        <div>
-          <label className="label">Verifiziert</label>
-          <select className="select" value={filters.verified} onChange={(e) => changeFilter('verified', e.target.value)}>
-            <option value="all">Alle</option>
-            <option value="yes">Verifiziert</option>
-            <option value="no">Nicht verifiziert</option>
           </select>
         </div>
         <div>
