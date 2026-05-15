@@ -25,40 +25,51 @@ export default function UserPOIImageUploader({ poiId, isAdmin = false, title = '
       const token = data.session?.access_token
       if (!token) throw new Error('Bitte zuerst einloggen.')
 
-      const form = new FormData()
-      form.append('poi_id', poiId)
-      form.append('caption', isAdmin ? 'Admin Upload' : 'User Upload')
-      form.append('variant_prefix', 'extra')
-      for (let i = 0; i < preparedFiles.length; i += 1) {
-        const item = preparedFiles[i]
-        setCurrentLabel(`Datei ${i + 1} von ${preparedFiles.length}: ${originalFiles[i]?.name || item.original.name}`)
-        form.append(`original_${i}`, item.original, item.original.name)
-        form.append(`thumb_${i}`, item.thumb, item.thumb.name)
-        form.append(`filename_${i}`, item.original.name)
+      const uploadPayload = {
+        poi_id: poiId,
+        caption: isAdmin ? 'Admin Upload' : 'User Upload',
+        variant_prefix: 'extra',
+        files: preparedFiles.map((item, index) => ({
+          filename: item.original.name,
+          original_type: item.original.type || 'image/webp',
+          thumb_type: item.thumb.type || 'image/webp',
+          is_cover: index === 0 && false,
+        })),
       }
 
-      const result = await new Promise((resolve, reject) => {
-        const xhr = new XMLHttpRequest()
-        xhr.open('POST', '/api/poi-images')
-        xhr.responseType = 'json'
-        xhr.setRequestHeader('Authorization', `Bearer ${token}`)
+      const signed = await fetch('/api/poi-images/signed-upload', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify(uploadPayload),
+      }).then(async (r) => {
+        const payload = await r.json().catch(() => ({}))
+        if (!r.ok) throw new Error(payload.error || `HTTP ${r.status}`)
+        return payload
+      })
 
-        xhr.upload.onprogress = (event) => {
-          if (!event.lengthComputable) return
-          const next = Math.max(5, Math.min(95, Math.round((event.loaded / event.total) * 100)))
-          setProgress(next)
-        }
+      const uploads = signed.uploads || []
+      for (let i = 0; i < uploads.length; i += 1) {
+        const item = preparedFiles[i]
+        const entry = uploads[i]
+        setCurrentLabel(`Datei ${i + 1} von ${preparedFiles.length}: ${originalFiles[i]?.name || item.original.name}`)
 
-        xhr.onload = () => {
-          const payload = xhr.response || {}
-          if (xhr.status >= 200 && xhr.status < 300) {
-            resolve(payload)
-            return
-          }
-          reject(new Error(payload.error || `HTTP ${xhr.status}`))
-        }
-        xhr.onerror = () => reject(new Error('Upload fehlgeschlagen'))
-        xhr.send(form)
+        const originalResult = await supabase.storage.from('poi-images').uploadToSignedUrl(entry.original.path, entry.original.token, item.original)
+        if (originalResult.error) throw new Error(originalResult.error.message)
+        setProgress(Math.max(5, Math.round(((i * 2 + 1) / (uploads.length * 2 + 1)) * 95)))
+
+        const thumbResult = await supabase.storage.from('poi-images').uploadToSignedUrl(entry.thumb.path, entry.thumb.token, item.thumb)
+        if (thumbResult.error) throw new Error(thumbResult.error.message)
+        setProgress(Math.max(5, Math.round(((i * 2 + 2) / (uploads.length * 2 + 1)) * 95)))
+      }
+
+      const result = await fetch('/api/poi-images/complete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ upload_id: signed.upload_id, uploads: signed.uploads }),
+      }).then(async (r) => {
+        const payload = await r.json().catch(() => ({}))
+        if (!r.ok) throw new Error(payload.error || `HTTP ${r.status}`)
+        return payload
       })
 
       setProgress(100)
