@@ -14,6 +14,8 @@ const sorters = {
   state: (a, b) => String(a.state || '').localeCompare(String(b.state || '')),
   created_at: (a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0),
   updated_at: (a, b) => new Date(b.updated_at || 0) - new Date(a.updated_at || 0),
+  view_count_month: (a, b) => Number(b.view_count_month || 0) - Number(a.view_count_month || 0),
+  view_count_all: (a, b) => Number(b.view_count_all || 0) - Number(a.view_count_all || 0),
 }
 
 export default function AdminPOIsClient() {
@@ -239,6 +241,8 @@ export default function AdminPOIsClient() {
                 <option value="category">Kategorie</option>
                 <option value="city">Ort</option>
                 <option value="state">Bundesstaat</option>
+                <option value="view_count_month">Aufrufe aktueller Monat</option>
+                <option value="view_count_all">Aufrufe gesamt</option>
               </select>
             </div>
             <div>
@@ -296,6 +300,7 @@ export default function AdminPOIsClient() {
               <th>Bundesstaat</th>
               <th>Erstellt</th>
               <th>Geändert</th>
+              <th>Aufrufe</th>
               <th>Aktion</th>
             </tr>
           </thead>
@@ -319,6 +324,12 @@ export default function AdminPOIsClient() {
                 <td>{poi.state || '-'}</td>
                 <td>{poi.created_at ? String(poi.created_at).slice(0, 10) : '-'}</td>
                 <td>{poi.updated_at ? String(poi.updated_at).slice(0, 10) : '-'}</td>
+                <td>
+                  <div className="admin-poi-view-stats">
+                    <span title="Aktueller Monat">Monat: {(poi.view_count_month || 0).toLocaleString('de-DE')}</span>
+                    <span title="Gesamt">Gesamt: {(poi.view_count_all || 0).toLocaleString('de-DE')}</span>
+                  </div>
+                </td>
                 <td>
                   <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
                     <Link className="btn btn-secondary admin-mini-btn" href={`/admin/poi/${poi.id}`}>Bearbeiten</Link>

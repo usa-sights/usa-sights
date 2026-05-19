@@ -2966,3 +2966,48 @@ pre.code { white-space: pre-wrap; background: #f8fafc; padding: 12px; border-rad
   .poi-action-grid, .poi-quick-actions-card .favorite-btn { width: 100%; }
   .poi-action-grid .btn, .poi-quick-actions-card .favorite-btn { justify-content: center; flex: 1 1 100%; }
 }
+
+.poi-search-results {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.poi-search-result {
+  appearance: none;
+  border: 1px solid rgba(15, 23, 42, 0.12);
+  background: #fff;
+  border-radius: 14px;
+  padding: 10px 12px;
+  text-align: left;
+  cursor: pointer;
+  display: grid;
+  gap: 3px;
+  transition: border-color .15s ease, transform .15s ease, box-shadow .15s ease;
+}
+
+.poi-search-result:hover,
+.poi-search-result:focus-visible {
+  border-color: rgba(13, 148, 136, 0.38);
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+  transform: translateY(-1px);
+  outline: none;
+}
+
+.poi-search-result span {
+  color: var(--muted);
+  font-size: 0.92rem;
+}
+
+.admin-poi-view-stats {
+  display: grid;
+  gap: 2px;
+  min-width: 98px;
+  font-size: 0.86rem;
+  color: var(--muted);
+}
+
+.admin-poi-view-stats span:first-child {
+  color: var(--text);
+  font-weight: 700;
+}

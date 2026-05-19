@@ -10,7 +10,7 @@ import { createBrowserSupabaseClient } from '@/utils/supabase/client'
 const MAX_FILES = 6
 const MAX_FILE_SIZE = 15 * 1024 * 1024
 
-export default function POIForm({ coords, userId, initialData = null, mode = 'create', onSaved = null, compactUserMode = false, enableAI = false }) {
+export default function POIForm({ coords, userId, initialData = null, mode = 'create', onSaved = null, compactUserMode = false, enableAI = false, pickedPlace = null }) {
   const [categories, setCategories] = useState([])
   const [message, setMessage] = useState('')
   const [geoLoading, setGeoLoading] = useState(false)
@@ -57,6 +57,12 @@ export default function POIForm({ coords, userId, initialData = null, mode = 'cr
     }
     loadLinks()
   }, [initialData?.id, compactUserMode])
+
+
+  useEffect(() => {
+    if (mode !== 'create' || !pickedPlace?.title) return
+    setForm((prev) => ({ ...prev, title: pickedPlace.title }))
+  }, [pickedPlace?.title, mode])
 
   useEffect(() => {
     if (!initialData) return

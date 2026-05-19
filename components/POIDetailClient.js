@@ -101,6 +101,19 @@ export default function POIDetailClient({ slug }) {
   }, [loadPoi])
 
   useEffect(() => {
+    if (!poi?.id || typeof window === 'undefined') return
+    const sessionKey = `poi-view-tracked:${poi.id}`
+    if (window.sessionStorage.getItem(sessionKey)) return
+    window.sessionStorage.setItem(sessionKey, '1')
+    fetch('/api/poi-view', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ poi_id: poi.id }),
+      keepalive: true,
+    }).catch(() => {})
+  }, [poi?.id])
+
+  useEffect(() => {
     if (typeof window === 'undefined') return
     const hash = window.location.hash
     if (!hash) return
