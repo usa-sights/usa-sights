@@ -7,31 +7,78 @@ function currentMonthKey() {
   return `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}`
 }
 
+function isMissingStatsSetup(error) {
+  const msg = String(error?.message || error?.details || error?.hint || '').toLowerCase()
+  const code = String(error?.code || '')
+  return (
+    code === '42P01' ||
+    code === '42883' ||
+    msg.includes('poi_view_stats') ||
+    msg.includes('get_poi_view_stats_for_admin') ||
+    msg.includes('does not exist') ||
+    msg.includes('not found')
+  )
+}
+
+function withZeroViewStats(items) {
+  return items.map((item) => ({ ...item, view_count_month: 0, view_count_all: 0 }))
+}
+
+function applyViewStats(items, rows) {
+  const stats = new Map()
+  for (const row of rows || []) {
+    stats.set(String(row.poi_id), {
+      month: Number(row.view_count_month || 0),
+      all: Number(row.view_count_all || 0),
+    })
+  }
+  return items.map((item) => {
+    const itemStats = stats.get(String(item.id)) || { month: 0, all: 0 }
+    return { ...item, view_count_month: itemStats.month, view_count_all: itemStats.all }
+  })
+}
+
 async function attachViewStats(admin, items) {
   const ids = items.map((x) => x.id).filter(Boolean)
   if (!ids.length) return items
 
+  const month = currentMonthKey()
+
+  // Bevorzugt über eine SECURITY-DEFINER-Funktion lesen. Das ist robuster,
+  // falls RLS/Policies auf poi_view_stats direkte Selects blockieren.
+  const rpcResult = await admin.rpc('get_poi_view_stats_for_admin', {
+    p_poi_ids: ids,
+    p_month_key: month,
+  })
+
+  if (!rpcResult.error) {
+    return applyViewStats(items, rpcResult.data || [])
+  }
+
+  if (!isMissingStatsSetup(rpcResult.error)) {
+    return withZeroViewStats(items)
+  }
+
+  // Fallback für Installationen, bei denen nur die Tabelle vorhanden ist.
   const { data, error } = await admin
     .from('poi_view_stats')
     .select('poi_id,month_key,view_count')
     .in('poi_id', ids)
 
-  if (error) {
-    return items.map((item) => ({ ...item, view_count_month: 0, view_count_all: 0 }))
-  }
+  if (error) return withZeroViewStats(items)
 
-  const month = currentMonthKey()
-  const stats = new Map()
+  const totals = new Map()
   for (const row of data || []) {
-    const current = stats.get(row.poi_id) || { month: 0, all: 0 }
+    const key = String(row.poi_id)
+    const current = totals.get(key) || { month: 0, all: 0 }
     const count = Number(row.view_count || 0)
     current.all += count
     if (row.month_key === month) current.month += count
-    stats.set(row.poi_id, current)
+    totals.set(key, current)
   }
 
   return items.map((item) => {
-    const itemStats = stats.get(item.id) || { month: 0, all: 0 }
+    const itemStats = totals.get(String(item.id)) || { month: 0, all: 0 }
     return { ...item, view_count_month: itemStats.month, view_count_all: itemStats.all }
   })
 }

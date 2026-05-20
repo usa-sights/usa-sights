@@ -52,3 +52,31 @@ $$;
 
 revoke all on function public.increment_poi_view(uuid, text) from public;
 grant execute on function public.increment_poi_view(uuid, text) to anon, authenticated, service_role;
+
+-- Liefert aggregierte Aufrufzahlen für die Admin-POI-Liste.
+-- SECURITY DEFINER ist bewusst gewählt, damit /admin/pois die Werte auch dann
+-- lesen kann, wenn RLS direkte Selects auf poi_view_stats blockiert.
+create or replace function public.get_poi_view_stats_for_admin(
+  p_poi_ids uuid[],
+  p_month_key text
+)
+returns table (
+  poi_id uuid,
+  view_count_month bigint,
+  view_count_all bigint
+)
+language sql
+security definer
+set search_path = public
+as $$
+  select
+    s.poi_id,
+    coalesce(sum(s.view_count) filter (where s.month_key = p_month_key), 0)::bigint as view_count_month,
+    coalesce(sum(s.view_count), 0)::bigint as view_count_all
+  from public.poi_view_stats s
+  where s.poi_id = any(p_poi_ids)
+  group by s.poi_id;
+$$;
+
+revoke all on function public.get_poi_view_stats_for_admin(uuid[], text) from public;
+grant execute on function public.get_poi_view_stats_for_admin(uuid[], text) to authenticated, service_role;
