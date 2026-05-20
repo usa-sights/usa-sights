@@ -17,5 +17,23 @@ create index if not exists poi_view_stats_month_key_idx on public.poi_view_stats
 
 alter table public.poi_view_stats enable row level security;
 
--- Normale Nutzer greifen nicht direkt auf diese Tabelle zu. Lesen/Schreiben erfolgt serverseitig per Service Role.
--- Admin-Auswertung wird über bestehende Admin-API geladen.
+-- Normale Nutzer greifen nicht direkt auf diese Tabelle zu. Lesen/Schreiben erfolgt serverseitig.
+-- Diese Funktion macht das Hochzählen atomar und verhindert verlorene Updates bei parallelen Aufrufen.
+create or replace function public.increment_poi_view(p_poi_id uuid, p_month_key text)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  insert into public.poi_view_stats (poi_id, month_key, view_count, updated_at)
+  values (p_poi_id, p_month_key, 1, now())
+  on conflict (poi_id, month_key)
+  do update set
+    view_count = public.poi_view_stats.view_count + 1,
+    updated_at = now();
+end;
+$$;
+
+revoke all on function public.increment_poi_view(uuid, text) from public;
+grant execute on function public.increment_poi_view(uuid, text) to anon, authenticated, service_role;

@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createBrowserSupabaseClient } from '@/utils/supabase/client'
 import AdminEditHint from '@/components/AdminEditHint'
 import POIGallery from '@/components/POIGallery'
@@ -39,6 +39,7 @@ export default function POIDetailClient({ slug }) {
   const [currentUserId, setCurrentUserId] = useState(null)
   const [currentUserRole, setCurrentUserRole] = useState('user')
   const [reviewRefreshKey, setReviewRefreshKey] = useState(0)
+  const trackedPoiIdRef = useRef(null)
 
   const loadPoi = useCallback(async () => {
     const res = await fetch(`/api/poi-public?slug=${encodeURIComponent(slug)}&t=${Date.now()}`, { cache: 'no-store' })
@@ -101,14 +102,21 @@ export default function POIDetailClient({ slug }) {
   }, [loadPoi])
 
   useEffect(() => {
-    if (!poi?.id || typeof window === 'undefined') return
-    const sessionKey = `poi-view-tracked:${poi.id}`
-    if (window.sessionStorage.getItem(sessionKey)) return
-    window.sessionStorage.setItem(sessionKey, '1')
+    if (!poi?.id || trackedPoiIdRef.current === poi.id) return
+    trackedPoiIdRef.current = poi.id
+
+    const body = JSON.stringify({ poi_id: poi.id })
+    try {
+      if (typeof navigator !== 'undefined' && typeof navigator.sendBeacon === 'function') {
+        const blob = new Blob([body], { type: 'application/json' })
+        if (navigator.sendBeacon('/api/poi-view', blob)) return
+      }
+    } catch {}
+
     fetch('/api/poi-view', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ poi_id: poi.id }),
+      body,
       keepalive: true,
     }).catch(() => {})
   }, [poi?.id])
