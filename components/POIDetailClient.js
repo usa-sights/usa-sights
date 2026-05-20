@@ -106,18 +106,13 @@ export default function POIDetailClient({ slug }) {
     trackedPoiIdRef.current = poi.id
 
     const body = JSON.stringify({ poi_id: poi.id })
-    try {
-      if (typeof navigator !== 'undefined' && typeof navigator.sendBeacon === 'function') {
-        const blob = new Blob([body], { type: 'application/json' })
-        if (navigator.sendBeacon('/api/poi-view', blob)) return
-      }
-    } catch {}
-
     fetch('/api/poi-view', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body,
+      cache: 'no-store',
       keepalive: true,
+      credentials: 'same-origin',
     }).catch(() => {})
   }, [poi?.id])
 

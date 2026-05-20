@@ -1,16 +1,31 @@
 -- Optionales, risikoarmes Tracking für POI-Aufrufe.
 -- Speichert nur aggregierte Monatszählungen je POI, keine IP-Adressen und keine User-Agents.
 -- Vor dem Deployment in Supabase SQL Editor ausführen, wenn /admin/pois Aufrufzahlen zeigen soll.
+--
+-- WICHTIGER FIX:
+-- Eine frühere Version nutzte im month_key-Check versehentlich eine Regex mit \\d.
+-- Das kann gültige Werte wie 2026-05 ablehnen und dadurch das Hochzählen verhindern.
+-- Dieses Script korrigiert den Check auch bei bereits bestehender Tabelle.
+
+create extension if not exists "uuid-ossp";
 
 create table if not exists public.poi_view_stats (
-  id uuid primary key default gen_random_uuid(),
+  id uuid primary key default uuid_generate_v4(),
   poi_id uuid not null references public.pois(id) on delete cascade,
-  month_key text not null check (month_key ~ '^\\d{4}-\\d{2}$'),
+  month_key text not null,
   view_count integer not null default 0 check (view_count >= 0),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   unique (poi_id, month_key)
 );
+
+-- Den month_key-Check bewusst nachträglich setzen, damit auch bestehende Installationen repariert werden.
+alter table public.poi_view_stats
+  drop constraint if exists poi_view_stats_month_key_check;
+
+alter table public.poi_view_stats
+  add constraint poi_view_stats_month_key_check
+  check (month_key ~ '^[0-9]{4}-[0-9]{2}$');
 
 create index if not exists poi_view_stats_poi_id_idx on public.poi_view_stats(poi_id);
 create index if not exists poi_view_stats_month_key_idx on public.poi_view_stats(month_key);
