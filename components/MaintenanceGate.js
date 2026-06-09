@@ -33,7 +33,7 @@ export default function MaintenanceGate({ children }) {
     let cancelled = false
 
     async function load() {
-      const settings = await fetch('/api/public/app-settings?t=' + Date.now(), { cache: 'no-store' })
+      const settings = await fetch('/api/public/app-settings')
         .then((res) => res.json())
         .catch(() => ({ maintenanceMode: false }))
 

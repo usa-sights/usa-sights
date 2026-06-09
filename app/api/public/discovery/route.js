@@ -2,7 +2,7 @@ import { createSupabaseAdminClient } from '@/utils/supabase/admin'
 import { deriveThumbPath } from '@/lib/imageUpload'
 
 export const dynamic = 'force-dynamic'
-export const revalidate = 0
+export const revalidate = 300
 
 function groupByCount(rows, keySelector, titleSelector, slugSelector, limit = 8) {
   const map = new Map()
@@ -92,5 +92,5 @@ export async function GET(req) {
     newest: (newestPois || []).map(enrich),
     popular: popular.map(enrich),
     mostReviewed: mostReviewed.map(enrich),
-  }, { headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0, s-maxage=0', Pragma: 'no-cache', Expires: '0' } })
+  }, { headers: { 'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=1800' } })
 }

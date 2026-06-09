@@ -3011,3 +3011,14 @@ pre.code { white-space: pre-wrap; background: #f8fafc; padding: 12px; border-rad
   color: var(--text);
   font-weight: 700;
 }
+
+.map-placeholder {
+  min-height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted);
+  background: linear-gradient(135deg, rgba(15, 23, 42, 0.04), rgba(13, 148, 136, 0.08));
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: inherit;
+}

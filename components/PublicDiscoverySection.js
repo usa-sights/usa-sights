@@ -21,7 +21,7 @@ function Block({ title, items = [], renderItem }) {
 function DiscoveryCard({ href, title, subtitle = '', text = '', imageUrl = null, meta = '' }) {
   return (
     <Link href={href} className="discovery-card">
-      {imageUrl ? <div className="discovery-image"><img src={imageUrl} alt={title} /></div> : null}
+      {imageUrl ? <div className="discovery-image"><img src={imageUrl} alt={title} loading="lazy" decoding="async" /></div> : null}
       <div className="discovery-card-body">
         <div className="discovery-title">{title}</div>
         {subtitle ? <div className="muted">{subtitle}</div> : null}
@@ -38,8 +38,7 @@ export default function PublicDiscoverySection({ categoryId = null, titlePrefix 
   const loadDiscovery = useCallback(() => {
     const params = new URLSearchParams()
     if (categoryId) params.set('category_id', categoryId)
-    params.set('t', String(Date.now()))
-    fetch(`/api/public/discovery?${params.toString()}`, { cache: 'no-store' })
+    fetch(`/api/public/discovery?${params.toString()}`)
       .then((r) => r.json())
       .then(setData)
       .catch(() => setData({ newest: [], popular: [], mostReviewed: [] }))

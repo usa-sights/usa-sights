@@ -221,7 +221,7 @@ export default function NavBar() {
     async function init() {
       const [sessionResult, settingsResult] = await Promise.all([
         supabase.auth.getSession(),
-        fetch('/api/public/app-settings?t=' + Date.now(), { cache: 'no-store' }).then((res) => res.json()).catch(() => ({ publicRankingVisible: false })),
+        fetch('/api/public/app-settings').then((res) => res.json()).catch(() => ({ publicRankingVisible: false })),
       ])
       if (cancelled) return
       const u = sessionResult.data.session?.user ?? null
@@ -247,7 +247,7 @@ export default function NavBar() {
         if (!cancelled) setPublicRankingVisible(event.detail.publicRankingVisible === true)
         return
       }
-      const settingsResult = await fetch('/api/public/app-settings?t=' + Date.now(), { cache: 'no-store' }).then((res) => res.json()).catch(() => ({ publicRankingVisible: false }))
+      const settingsResult = await fetch('/api/public/app-settings').then((res) => res.json()).catch(() => ({ publicRankingVisible: false }))
       if (!cancelled) setPublicRankingVisible(settingsResult.publicRankingVisible === true)
     }
 
