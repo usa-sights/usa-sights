@@ -1,11 +1,57 @@
 'use client'
 
-import { memo, useEffect, useState } from 'react'
+import { memo, useEffect, useMemo, useState } from 'react'
 
 const DEFAULT_FALLBACK = ''
+const signedUrlCache = new Map()
+const signedUrlPromiseCache = new Map()
+
+function getTransformKey(transform) {
+  if (!transform || typeof transform !== 'object') return 'original'
+  const width = Number(transform.width) || ''
+  const height = Number(transform.height) || ''
+  const quality = Number(transform.quality) || ''
+  const resize = transform.resize || ''
+  return `${width}x${height}:${quality}:${resize}`
+}
+
+function getSignedCacheKey(path, transform) {
+  return `${getTransformKey(transform)}::${path}`
+}
+
+async function loadSignedUrl(path, transform) {
+  const normalizedPath = typeof path === 'string' ? path.trim() : ''
+  if (!normalizedPath) return ''
+
+  const cacheKey = getSignedCacheKey(normalizedPath, transform)
+  if (signedUrlCache.has(cacheKey)) return signedUrlCache.get(cacheKey)
+
+  if (!signedUrlPromiseCache.has(cacheKey)) {
+    signedUrlPromiseCache.set(cacheKey, fetch('/api/images/signed-urls', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        paths: [normalizedPath],
+        ...(transform ? { transform } : {}),
+      }),
+    })
+      .then((res) => res.ok ? res.json() : { urls: {} })
+      .then((data) => {
+        const signedUrl = data?.urls?.[normalizedPath] || ''
+        if (signedUrl) signedUrlCache.set(cacheKey, signedUrl)
+        return signedUrl
+      })
+      .catch(() => '')
+      .finally(() => signedUrlPromiseCache.delete(cacheKey)))
+  }
+
+  return signedUrlPromiseCache.get(cacheKey)
+}
 
 const OptimizedImage = memo(function OptimizedImage({
   src,
+  storagePath,
+  transform,
   fallbackSrc = DEFAULT_FALLBACK,
   alt = '',
   className = '',
@@ -18,11 +64,32 @@ const OptimizedImage = memo(function OptimizedImage({
   style,
   onClick,
 }) {
-  const [currentSrc, setCurrentSrc] = useState(src || fallbackSrc || '')
+  const normalizedStoragePath = typeof storagePath === 'string' ? storagePath.trim() : ''
+  const transformKey = useMemo(() => getTransformKey(transform), [transform?.width, transform?.height, transform?.quality, transform?.resize])
+  const initialSrc = src || (!normalizedStoragePath ? fallbackSrc : '') || ''
+  const [currentSrc, setCurrentSrc] = useState(initialSrc)
 
   useEffect(() => {
-    setCurrentSrc(src || fallbackSrc || '')
-  }, [src, fallbackSrc])
+    let active = true
+
+    if (src) {
+      setCurrentSrc(src)
+      return () => { active = false }
+    }
+
+    if (!normalizedStoragePath) {
+      setCurrentSrc(fallbackSrc || '')
+      return () => { active = false }
+    }
+
+    setCurrentSrc('')
+    loadSignedUrl(normalizedStoragePath, transform).then((signedUrl) => {
+      if (!active) return
+      setCurrentSrc(signedUrl || fallbackSrc || '')
+    })
+
+    return () => { active = false }
+  }, [src, normalizedStoragePath, fallbackSrc, transformKey])
 
   if (!currentSrc) return null
 

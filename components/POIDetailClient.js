@@ -41,8 +41,12 @@ export default function POIDetailClient({ slug }) {
   const [reviewRefreshKey, setReviewRefreshKey] = useState(0)
   const trackedPoiIdRef = useRef(null)
 
-  const loadPoi = useCallback(async () => {
-    const res = await fetch(`/api/poi-public?slug=${encodeURIComponent(slug)}&t=${Date.now()}`, { cache: 'no-store' })
+  const loadPoi = useCallback(async (options = {}) => {
+    const query = new URLSearchParams({ slug: String(slug || '') })
+    if (options.fresh) query.set('fresh', '1')
+    const res = await fetch(`/api/poi-public?${query.toString()}`, {
+      cache: options.fresh ? 'no-store' : 'default',
+    })
     const data = await res.json()
     if (data.error) {
       setPoi(null)
@@ -95,7 +99,7 @@ export default function POIDetailClient({ slug }) {
     function handleAppDataChanged(event) {
       const url = String(event?.detail?.url || '')
       if (!url.includes('/api/poi-images') && !url.includes('/api/poi-links')) return
-      loadPoi()
+      loadPoi({ fresh: true })
     }
     window.addEventListener('app-data-changed', handleAppDataChanged)
     return () => window.removeEventListener('app-data-changed', handleAppDataChanged)
@@ -253,7 +257,7 @@ export default function POIDetailClient({ slug }) {
       ) : null}
 
       {currentUserId ? (
-        <UserPOIImageUploader poiId={poi.id} isAdmin={currentUserRole === 'admin'} title="Fotos zu diesem POI beitragen" onUploaded={() => { loadPoi(); setTimeout(() => loadPoi(), 350); setTimeout(() => loadPoi(), 1200) }} />
+        <UserPOIImageUploader poiId={poi.id} isAdmin={currentUserRole === 'admin'} title="Fotos zu diesem POI beitragen" onUploaded={() => { loadPoi({ fresh: true }); setTimeout(() => loadPoi({ fresh: true }), 350); setTimeout(() => loadPoi({ fresh: true }), 1200) }} />
       ) : (
         <div className="card" style={{ marginTop: 12 }}>
           <h3>Fotos beitragen</h3>
@@ -261,7 +265,7 @@ export default function POIDetailClient({ slug }) {
         </div>
       )}
 
-      <POIReviews poiId={poi.id} onChanged={() => { setReviewRefreshKey((x) => x + 1); loadPoi() }} />
+      <POIReviews poiId={poi.id} onChanged={() => { setReviewRefreshKey((x) => x + 1); loadPoi({ fresh: true }) }} />
     </main>
   )
 }

@@ -62,8 +62,9 @@ function writeFiltersToUrl(filters, withHash = false) {
   window.history.replaceState(null, '', url.toString())
 }
 
-function buildReviewQuery(poiId, filters) {
-  const params = new URLSearchParams({ poi_id: poiId, t: String(Date.now()) })
+function buildReviewQuery(poiId, filters, options = {}) {
+  const params = new URLSearchParams({ poi_id: poiId })
+  if (options.fresh) params.set('fresh', '1')
   if (filters.stars !== 'all') params.set('stars', filters.stars)
   if (filters.period !== 'all') params.set('period', filters.period)
   if (filters.text !== 'all') params.set('text', filters.text)
@@ -82,7 +83,9 @@ export function POIReviewOverview({ poiId, refreshKey = 0, isLoggedIn = false })
     let active = true
     async function loadStats() {
       if (!poiId) return
-      const res = await fetch(`/api/poi-reviews?poi_id=${poiId}&t=${Date.now()}`, { cache: 'no-store' })
+      const params = new URLSearchParams({ poi_id: poiId })
+      if (refreshKey) params.set('fresh', '1')
+      const res = await fetch(`/api/poi-reviews?${params.toString()}`, { cache: refreshKey ? 'no-store' : 'default' })
       const data = await res.json().catch(() => ({}))
       if (!active || data.error) return
       setStats({
@@ -155,9 +158,11 @@ export default function POIReviews({ poiId, onChanged = null }) {
     setCount(stats.count || 0)
   }
 
-  async function load(nextFilters = filters) {
+  async function load(nextFilters = filters, options = {}) {
     if (!poiId) return
-    const res = await fetch(`/api/poi-reviews?${buildReviewQuery(poiId, nextFilters).toString()}`, { cache: 'no-store' })
+    const res = await fetch(`/api/poi-reviews?${buildReviewQuery(poiId, nextFilters, options).toString()}`, {
+      cache: options.fresh ? 'no-store' : 'default',
+    })
     const data = await res.json()
     if (data.error) return setMessage(data.error)
     applyItems(data.items || [])
@@ -248,7 +253,7 @@ export default function POIReviews({ poiId, onChanged = null }) {
     setReviewText('')
     setMessage('Bewertung gespeichert. Du kannst sie später jederzeit anpassen.')
     onChanged?.()
-    await load(nextFilters)
+    await load(nextFilters, { fresh: true })
   }
 
   async function submitReply(reviewId) {
@@ -264,7 +269,8 @@ export default function POIReviews({ poiId, onChanged = null }) {
     if (result.error) return setMessage(result.error)
     setReplyTexts((prev) => ({ ...prev, [reviewId]: '' }))
     setActiveReplyId(null)
-    await load()
+    await load(filters, { fresh: true })
+    onChanged?.()
   }
 
   const visibleReviews = items.filter((review) => Number(review.rating || 0) > 0 || String(review.review_text || '').trim())

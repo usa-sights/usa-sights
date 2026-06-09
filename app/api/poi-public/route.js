@@ -5,6 +5,12 @@ import { normalizeEditorialRecord, normalizePoiRecord } from '@/lib/poiEditorial
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
 
+function publicCacheHeaders() {
+  return {
+    'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300',
+  }
+}
+
 function noStoreHeaders() {
   return {
     'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0, s-maxage=0',
@@ -13,20 +19,11 @@ function noStoreHeaders() {
   }
 }
 
-async function buildSignedUrlMap(admin, paths = []) {
-  const uniquePaths = Array.from(new Set(paths.filter(Boolean)))
-  const entries = await Promise.all(uniquePaths.map(async (path) => {
-    const { data } = await admin.storage.from('poi-images').createSignedUrl(path, 3600)
-    if (data?.signedUrl) return [path, data.signedUrl]
-    return [path, null]
-  }))
-  return Object.fromEntries(entries.filter(([, url]) => !!url))
-}
-
 export async function GET(req) {
   const admin = createSupabaseAdminClient()
   const { searchParams } = new URL(req.url)
   const slug = searchParams.get('slug')
+  const fresh = searchParams.get('fresh') === '1'
   if (!slug) return Response.json({ error: 'slug fehlt' }, { status: 400, headers: noStoreHeaders() })
 
   const { data: poi, error: poiError } = await admin
@@ -46,10 +43,6 @@ export async function GET(req) {
   ])
 
   const images = imagesResult.data || []
-  let imageUrls = {}
-  if (images.length) {
-    imageUrls = await buildSignedUrlMap(admin, images.flatMap((x) => [deriveThumbPath(x.path), x.path]))
-  }
 
   let profileMap = {}
   const uploadedByIds = Array.from(new Set(images.map((x) => x.uploaded_by).filter(Boolean)))
@@ -83,11 +76,13 @@ export async function GET(req) {
     affiliates,
     images: images.map((img) => ({
       ...img,
-      url: imageUrls[img.path] || null,
-      thumb_url: imageUrls[deriveThumbPath(img.path)] || imageUrls[img.path] || null,
+      url: null,
+      thumb_url: null,
+      original_path: img.path || null,
+      thumb_path: deriveThumbPath(img.path),
       uploaded_by_label: profileMap[img.uploaded_by] || null,
     })),
   }, {
-    headers: noStoreHeaders()
+    headers: fresh ? noStoreHeaders() : publicCacheHeaders()
   })
 }

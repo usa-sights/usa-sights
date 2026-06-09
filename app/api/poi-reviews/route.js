@@ -4,6 +4,12 @@ import { calculateRatingDistribution, calculateReviewStats, isReviewVerified, no
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
 
+function publicCacheHeaders() {
+  return {
+    'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300',
+  }
+}
+
 function noStoreHeaders() {
   return {
     'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0, s-maxage=0',
@@ -53,6 +59,7 @@ function applyReviewFilters(items, searchParams) {
 export async function GET(req) {
   const { searchParams } = new URL(req.url)
   const poiId = searchParams.get('poi_id')
+  const fresh = searchParams.get('fresh') === '1'
   if (!poiId) return Response.json({ error: 'poi_id fehlt' }, { status: 400, headers: noStoreHeaders() })
 
   const admin = createSupabaseAdminClient()
@@ -115,6 +122,6 @@ export async function GET(req) {
     total_average: allStats.average,
     distribution: calculateRatingDistribution(allItems),
   }, {
-    headers: noStoreHeaders(),
+    headers: fresh ? noStoreHeaders() : publicCacheHeaders(),
   })
 }

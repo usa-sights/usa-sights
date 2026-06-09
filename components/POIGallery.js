@@ -46,7 +46,7 @@ function Lightbox({ images, startIndex, poiTitle, onClose }) {
           <div className="poi-thumb-strip">
             {images.map((img, i) => (
               <button key={img.id || i} type="button" className={`poi-thumb ${i === index ? 'active' : ''}`} onClick={() => setIndex(i)}>
-                <OptimizedImage src={img.thumb_url || img.display_url || img.url} alt={img.caption || poiTitle} width={160} height={90} loading="lazy" />
+                <OptimizedImage src={img.thumb_url || img.display_url || img.url} storagePath={img.thumb_path || img.original_path} transform={{ width: 240, height: 135, resize: 'cover', quality: 60 }} alt={img.caption || poiTitle} width={160} height={90} loading="lazy" />
               </button>
             ))}
           </div>
@@ -59,7 +59,7 @@ function Lightbox({ images, startIndex, poiTitle, onClose }) {
           </div>
           {images.length > 1 ? <button type="button" aria-label="Vorheriges Bild" className="poi-lightbox-nav prev" onClick={(e) => { e.preventDefault(); e.stopPropagation(); prev() }}>‹</button> : null}
           <div className="poi-lightbox-image-wrap">
-            <OptimizedImage className="poi-lightbox-image contain" src={current.url || current.display_url || current.thumb_url} alt={current.caption || poiTitle} width={1600} height={1000} loading="eager" fetchPriority="high" />
+            <OptimizedImage className="poi-lightbox-image contain" src={current.url || current.display_url || current.thumb_url} storagePath={current.original_path || current.thumb_path} transform={{ width: 1600, height: 1000, resize: 'contain', quality: 78 }} alt={current.caption || poiTitle} width={1600} height={1000} loading="eager" fetchPriority="high" />
             <div className="poi-lightbox-credit">
               {current.caption ? <div>{current.caption}</div> : null}
               {current.uploaded_by_label ? <div>Hochgeladen von: {current.uploaded_by_label}</div> : null}
@@ -74,7 +74,14 @@ function Lightbox({ images, startIndex, poiTitle, onClose }) {
 
 export default function POIGallery({ images = [], poiTitle = '' }) {
   const [openIndex, setOpenIndex] = useState(null)
-  const normalized = useMemo(() => images.map((x) => ({ ...x, display_url: x?.url || x?.thumb_url })).filter((x) => !!x?.display_url), [images])
+  const normalized = useMemo(() => images
+    .map((x) => ({
+      ...x,
+      display_url: x?.url || x?.thumb_url || null,
+      thumb_path: x?.thumb_path || x?.cover_thumb_path || null,
+      original_path: x?.path || x?.original_path || null,
+    }))
+    .filter((x) => !!(x?.display_url || x?.thumb_path || x?.original_path)), [images])
   if (!normalized.length) return null
 
   const main = normalized[0]
@@ -84,13 +91,13 @@ export default function POIGallery({ images = [], poiTitle = '' }) {
     <>
       <div id="poi-gallery" className="poi-gallery-grid">
         <div className="poi-gallery-main" onClick={() => setOpenIndex(0)}>
-          <OptimizedImage src={main.display_url || main.url || main.thumb_url} alt={main.caption || poiTitle} width={1200} height={675} loading="eager" fetchPriority="high" sizes="(max-width: 960px) 100vw, 66vw" />
+          <OptimizedImage src={main.display_url || main.url || main.thumb_url} storagePath={main.thumb_path || main.original_path} transform={{ width: 1200, height: 675, resize: 'cover', quality: 72 }} alt={main.caption || poiTitle} width={1200} height={675} loading="eager" fetchPriority="high" sizes="(max-width: 960px) 100vw, 66vw" />
           {normalized.length > 1 ? <div className="poi-gallery-count">📷 {normalized.length}</div> : null}
         </div>
         <div className="poi-gallery-side">
           {side.map((img, i) => (
             <div key={img.id || i} className="poi-gallery-side-item" onClick={() => setOpenIndex(i + 1)}>
-              <OptimizedImage src={img.thumb_url || img.display_url || img.url} alt={img.caption || poiTitle} width={160} height={90} loading="lazy" />
+              <OptimizedImage src={img.thumb_url || img.display_url || img.url} storagePath={img.thumb_path || img.original_path} transform={{ width: 240, height: 135, resize: 'cover', quality: 60 }} alt={img.caption || poiTitle} width={160} height={90} loading="lazy" />
             </div>
           ))}
           {side.length < 4 ? Array.from({ length: 4 - side.length }).map((_, i) => <div key={`f-${i}`} className="poi-gallery-side-item" style={{ visibility:'hidden' }} />) : null}
