@@ -33,7 +33,6 @@ export default function ExploreClient() {
       minLng: String(nextViewport.minLng),
       maxLng: String(nextViewport.maxLng),
       limit: '800',
-      include_images: '1',
     })
     if (search) qs.set('q', search)
     if (categoryId) qs.set('category_id', categoryId)

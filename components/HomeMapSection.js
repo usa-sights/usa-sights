@@ -35,7 +35,6 @@ export default function HomeMapSection() {
       minLng: String(bounds.minLng),
       maxLng: String(bounds.maxLng),
       limit: '300',
-      include_images: '1',
     })
     if (forcedSearch) params.set('q', forcedSearch)
     if (forcedState) params.set('state', forcedState)
