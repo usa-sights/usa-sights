@@ -3022,3 +3022,7 @@ pre.code { white-space: pre-wrap; background: #f8fafc; padding: 12px; border-rad
   border: 1px solid rgba(15, 23, 42, 0.08);
   border-radius: inherit;
 }
+
+.discovery-lazy-placeholder {
+  min-height: 1px;
+}
