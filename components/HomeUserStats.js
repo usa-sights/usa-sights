@@ -56,7 +56,8 @@ function AnimatedNumber({ value, startToken }) {
 }
 
 async function fetchStats(signal) {
-  const response = await fetch('/api/public/stats', {
+  const response = await fetch(`/api/public/stats?t=${Date.now()}`, {
+    cache: 'no-store',
     signal,
   })
 

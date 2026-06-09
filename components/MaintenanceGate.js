@@ -5,7 +5,6 @@ import { usePathname } from 'next/navigation'
 import { Wrench } from 'lucide-react'
 import { createBrowserSupabaseClient } from '@/utils/supabase/client'
 import { authFetchJson } from '@/utils/authFetch'
-import { fetchPublicAppSettings, primePublicAppSettings } from '@/utils/publicAppSettings'
 
 function MaintenanceScreen() {
   return (
@@ -30,33 +29,13 @@ export default function MaintenanceGate({ children }) {
   const [isAdmin, setIsAdmin] = useState(false)
   const [ready, setReady] = useState(false)
 
-  const adminOrAuthPath = pathname.startsWith('/admin') || pathname.startsWith('/login') || pathname.startsWith('/register')
-
   useEffect(() => {
     let cancelled = false
 
-    async function load({ force = false } = {}) {
-      if (adminOrAuthPath) {
-        if (!cancelled) {
-          setMaintenanceMode(false)
-          setIsAdmin(false)
-          setReady(true)
-        }
-        return
-      }
-
-      const settings = await fetchPublicAppSettings({ force })
-      if (cancelled) return
-
-      setMaintenanceMode(settings.maintenanceMode === true)
-
-      // In the common case maintenance mode is disabled. Avoid the extra
-      // Supabase session/profile requests on every public page load.
-      if (settings.maintenanceMode !== true) {
-        setIsAdmin(false)
-        setReady(true)
-        return
-      }
+    async function load() {
+      const settings = await fetch('/api/public/app-settings?t=' + Date.now(), { cache: 'no-store' })
+        .then((res) => res.json())
+        .catch(() => ({ maintenanceMode: false }))
 
       let admin = false
       const sessionResult = await supabase.auth.getSession().catch(() => ({ data: { session: null } }))
@@ -66,6 +45,7 @@ export default function MaintenanceGate({ children }) {
       }
 
       if (!cancelled) {
+        setMaintenanceMode(settings.maintenanceMode === true)
         setIsAdmin(admin)
         setReady(true)
       }
@@ -73,11 +53,10 @@ export default function MaintenanceGate({ children }) {
 
     function onSettingsChanged(event) {
       if (event?.detail && Object.prototype.hasOwnProperty.call(event.detail, 'maintenanceMode')) {
-        primePublicAppSettings({ maintenanceMode: event.detail.maintenanceMode === true })
         setMaintenanceMode(event.detail.maintenanceMode === true)
         return
       }
-      load({ force: true })
+      load()
     }
 
     load()
@@ -86,7 +65,9 @@ export default function MaintenanceGate({ children }) {
       cancelled = true
       window.removeEventListener('app-settings-changed', onSettingsChanged)
     }
-  }, [adminOrAuthPath, supabase])
+  }, [supabase])
+
+  const adminOrAuthPath = pathname.startsWith('/admin') || pathname.startsWith('/login') || pathname.startsWith('/register')
 
   if (!ready) return children
   if (maintenanceMode && !isAdmin && !adminOrAuthPath) return <MaintenanceScreen />

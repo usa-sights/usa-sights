@@ -18,11 +18,9 @@ export default function HomeMapSection() {
   const [search, setSearch] = useState('')
   const [state, setState] = useState('')
   const [states, setStates] = useState([])
-  const [isMapVisible, setIsMapVisible] = useState(false)
   const lastRequestKey = useRef('')
   const pendingController = useRef(null)
   const viewportRef = useRef(null)
-  const mapShellRef = useRef(null)
   const debouncedSearch = useDebouncedValue(search.trim(), 220)
   const debouncedState = useDebouncedValue(state.trim(), 220)
 
@@ -35,6 +33,7 @@ export default function HomeMapSection() {
       minLng: String(bounds.minLng),
       maxLng: String(bounds.maxLng),
       limit: '300',
+      include_images: '1',
     })
     if (forcedSearch) params.set('q', forcedSearch)
     if (forcedState) params.set('state', forcedState)
@@ -47,7 +46,7 @@ export default function HomeMapSection() {
     pendingController.current = controller
 
     try {
-      const res = await fetch(`/api/public-pois?${key}`, { signal: controller.signal })
+      const res = await fetch(`/api/public-pois?${key}&t=${Date.now()}`, { signal: controller.signal, cache: 'no-store' })
       const data = await res.json()
       const items = data.items || []
       setPois(items)
@@ -63,29 +62,9 @@ export default function HomeMapSection() {
   }, [debouncedSearch, debouncedState, handleViewportChange])
 
   useEffect(() => {
-    if (!isMapVisible || viewportRef.current) return
+    if (viewportRef.current) return
     handleViewportChange({ minLat: 24, maxLat: 50, minLng: -125, maxLng: -66, zoom: 4 }, debouncedSearch, debouncedState)
-  }, [isMapVisible, handleViewportChange, debouncedSearch, debouncedState])
-
-  useEffect(() => {
-    const element = mapShellRef.current
-    if (!element || typeof IntersectionObserver === 'undefined') {
-      setIsMapVisible(true)
-      return undefined
-    }
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (!entries.some((entry) => entry.isIntersecting)) return
-        setIsMapVisible(true)
-        observer.disconnect()
-      },
-      { rootMargin: '450px 0px', threshold: 0.01 }
-    )
-
-    observer.observe(element)
-    return () => observer.disconnect()
-  }, [])
+  }, [handleViewportChange, debouncedSearch, debouncedState])
 
   const resetFilters = useCallback(() => {
     setSearch('')
@@ -126,18 +105,14 @@ export default function HomeMapSection() {
           </p>
         </div>
       </div>
-      <div ref={mapShellRef} className="home-map" style={{ height: '78vh' }}>
-        {isMapVisible ? (
-          <ExploreMap
-            points={pois}
-            onViewportChange={handleViewportChange}
-            fullScreen
-            showTrailToggle
-            mapContext="home"
-          />
-        ) : (
-          <div className="map-placeholder" aria-hidden="true">Karte wird geladen …</div>
-        )}
+      <div className="home-map" style={{ height: '78vh' }}>
+        <ExploreMap
+          points={pois}
+          onViewportChange={handleViewportChange}
+          fullScreen
+          showTrailToggle
+          mapContext="home"
+        />
       </div>
     </section>
   )

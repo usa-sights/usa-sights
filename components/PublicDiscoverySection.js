@@ -1,8 +1,7 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
-import SmartImage from '@/components/map/SmartImage'
 import { useAppDataRefresh } from '@/hooks/useAppDataRefresh'
 
 function Block({ title, items = [], renderItem }) {
@@ -19,16 +18,10 @@ function Block({ title, items = [], renderItem }) {
   )
 }
 
-function DiscoveryCard({ href, title, subtitle = '', text = '', item = null, meta = '' }) {
-  const hasImage = Boolean(item?.cover_thumb_path || item?.cover_path || item?.image_url || item?.cover_thumb_url || item?.cover_url || item?.thumbnail_url)
-
+function DiscoveryCard({ href, title, subtitle = '', text = '', imageUrl = null, meta = '' }) {
   return (
     <Link href={href} className="discovery-card">
-      {hasImage ? (
-        <div className="discovery-image">
-          <SmartImage item={item} alt={title} width={640} height={360} loading="lazy" sizes="(max-width: 760px) 100vw, (max-width: 1100px) 50vw, 33vw" />
-        </div>
-      ) : null}
+      {imageUrl ? <div className="discovery-image"><img src={imageUrl} alt={title} /></div> : null}
       <div className="discovery-card-body">
         <div className="discovery-title">{title}</div>
         {subtitle ? <div className="muted">{subtitle}</div> : null}
@@ -41,51 +34,27 @@ function DiscoveryCard({ href, title, subtitle = '', text = '', item = null, met
 
 export default function PublicDiscoverySection({ categoryId = null, titlePrefix = '' }) {
   const [data, setData] = useState(null)
-  const [shouldLoad, setShouldLoad] = useState(false)
-  const rootRef = useRef(null)
 
   const loadDiscovery = useCallback(() => {
     const params = new URLSearchParams()
     if (categoryId) params.set('category_id', categoryId)
-    fetch(`/api/public/discovery?${params.toString()}`)
+    params.set('t', String(Date.now()))
+    fetch(`/api/public/discovery?${params.toString()}`, { cache: 'no-store' })
       .then((r) => r.json())
       .then(setData)
       .catch(() => setData({ newest: [], popular: [], mostReviewed: [] }))
   }, [categoryId])
 
-  useAppDataRefresh(() => {
-    if (shouldLoad) loadDiscovery()
-  })
+  useAppDataRefresh(loadDiscovery)
 
   useEffect(() => {
-    const element = rootRef.current
-    if (!element || typeof IntersectionObserver === 'undefined') {
-      setShouldLoad(true)
-      return undefined
-    }
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (!entries.some((entry) => entry.isIntersecting)) return
-        setShouldLoad(true)
-        observer.disconnect()
-      },
-      { rootMargin: '500px 0px', threshold: 0.01 }
-    )
-
-    observer.observe(element)
-    return () => observer.disconnect()
-  }, [])
-
-  useEffect(() => {
-    if (!shouldLoad) return
     loadDiscovery()
-  }, [shouldLoad, loadDiscovery])
+  }, [loadDiscovery])
 
-  if (!data) return <div ref={rootRef} className="discovery-lazy-placeholder" aria-hidden="true" />
+  if (!data) return null
 
   return (
-    <div ref={rootRef}>
+    <>
       <Block
         title={`${titlePrefix} Beliebte POIs`}
         items={data.popular}
@@ -95,7 +64,7 @@ export default function PublicDiscoverySection({ categoryId = null, titlePrefix 
             href={`/poi/${item.slug}`}
             title={item.title}
             meta={`${item.count} Favoriten`}
-            item={item}
+            imageUrl={item.image_url}
           />
         )}
       />
@@ -109,7 +78,7 @@ export default function PublicDiscoverySection({ categoryId = null, titlePrefix 
             title={item.title}
             subtitle={item.categories?.name || 'POI'}
             text={item.short_description || ''}
-            item={item}
+            imageUrl={item.image_url}
           />
         )}
       />
@@ -122,10 +91,10 @@ export default function PublicDiscoverySection({ categoryId = null, titlePrefix 
             href={`/poi/${item.slug}`}
             title={item.title}
             meta={`${item.count} Bewertungen`}
-            item={item}
+            imageUrl={item.image_url}
           />
         )}
       />
-    </div>
+    </>
   )
 }

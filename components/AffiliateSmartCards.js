@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react'
 import { BedDouble, CalendarRange, ExternalLink, Plane, ShoppingBag, Ticket } from 'lucide-react'
-import OptimizedImage from '@/components/OptimizedImage'
 
 function affiliateMeta(item) {
   const key = String(item.provider_key || '').toLowerCase()
@@ -35,14 +34,13 @@ function AffiliateCard({ item }) {
       title={meta.label}
     >
       <div className="affiliate-image" style={{ backgroundImage: `linear-gradient(180deg, rgba(255,255,255,.02), rgba(15,23,42,.12)), url(${imageSrc})` }}>
-        <OptimizedImage
+        <img
           src={imageSrc}
-          fallbackSrc={fallback}
           alt={item.headline}
-          width={640}
-          height={360}
-          loading="lazy"
-          sizes="(max-width: 760px) 100vw, 50vw"
+          onError={() => {
+            if (imageSrc !== fallback) setImageSrc(fallback)
+            else if (imageSrc !== defaultImage) setImageSrc(defaultImage)
+          }}
         />
         <div className="affiliate-image-overlay">
           <span className="affiliate-image-badge"><Icon size={16} /> <span>{meta.label}</span></span>

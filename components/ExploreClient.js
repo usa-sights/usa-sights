@@ -32,7 +32,8 @@ export default function ExploreClient() {
       maxLat: String(nextViewport.maxLat),
       minLng: String(nextViewport.minLng),
       maxLng: String(nextViewport.maxLng),
-      limit: '800',
+      limit: '1500',
+      include_images: '1',
     })
     if (search) qs.set('q', search)
     if (categoryId) qs.set('category_id', categoryId)
@@ -47,7 +48,7 @@ export default function ExploreClient() {
     abortRef.current = controller
 
     try {
-      const res = await fetch(`/api/public-pois?${key}`, { signal: controller.signal })
+      const res = await fetch(`/api/public-pois?${key}`, { cache: 'no-store', signal: controller.signal })
       const data = await res.json()
       setPois(data.items || [])
       setStates((prev) => prev.length ? prev : Array.from(new Set((data.items || []).map((x) => x.state).filter(Boolean))).sort())
