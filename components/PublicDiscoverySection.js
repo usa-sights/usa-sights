@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
+import OptimizedImage from '@/components/OptimizedImage'
 import { useAppDataRefresh } from '@/hooks/useAppDataRefresh'
 
 function Block({ title, items = [], renderItem }) {
@@ -21,7 +22,7 @@ function Block({ title, items = [], renderItem }) {
 function DiscoveryCard({ href, title, subtitle = '', text = '', imageUrl = null, meta = '' }) {
   return (
     <Link href={href} className="discovery-card">
-      {imageUrl ? <div className="discovery-image"><img src={imageUrl} alt={title} loading="lazy" decoding="async" /></div> : null}
+      {imageUrl ? <div className="discovery-image"><OptimizedImage src={imageUrl} alt={title} width={640} height={360} loading="lazy" sizes="(max-width: 760px) 100vw, (max-width: 1100px) 50vw, 33vw" /></div> : null}
       <div className="discovery-card-body">
         <div className="discovery-title">{title}</div>
         {subtitle ? <div className="muted">{subtitle}</div> : null}

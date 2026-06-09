@@ -41,7 +41,7 @@ async function loadSignedUrls(paths = []) {
   return Object.fromEntries(paths.map((path) => [path, signedUrlCache.get(path)]).filter(([, url]) => !!url))
 }
 
-const SmartImage = memo(function SmartImage({ item, className = '', alt = '', width = 320, height = 180, fallback = null }) {
+const SmartImage = memo(function SmartImage({ item, className = '', alt = '', width = 320, height = 180, fallback = null, loading = 'lazy', fetchPriority, sizes }) {
   const [index, setIndex] = useState(0)
   const [signedUrls, setSignedUrls] = useState([])
   const directCandidates = getPreviewImageCandidates(item, { width, height })
@@ -74,8 +74,10 @@ const SmartImage = memo(function SmartImage({ item, className = '', alt = '', wi
       alt={alt}
       width={width}
       height={height}
-      loading="lazy"
+      loading={loading}
+      fetchPriority={fetchPriority}
       decoding="async"
+      sizes={sizes}
       onError={() => setIndex((current) => current + 1)}
     />
   )
