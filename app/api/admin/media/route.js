@@ -16,7 +16,8 @@ export async function GET(req) {
   if (!auth.ok) return Response.json({ error: auth.error }, { status: auth.status })
   const { searchParams } = new URL(req.url)
   const poiId = searchParams.get('poi_id')
-  const status = searchParams.get('status')
+  const requestedStatus = searchParams.get('status')
+  const status = ['pending', 'approved', 'rejected'].includes(requestedStatus) ? requestedStatus : null
   const limit = Math.min(Math.max(Number(searchParams.get('limit') || 72), 12), 240)
   const offset = Math.max(Number(searchParams.get('offset') || 0), 0)
 

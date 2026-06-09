@@ -2,7 +2,7 @@ import { createSupabaseAdminClient } from '@/utils/supabase/admin'
 import { deriveThumbPath } from '@/lib/imageUpload'
 
 export const dynamic = 'force-dynamic'
-export const revalidate = 0
+export const revalidate = 60
 
 function toNum(value) {
   if (value === null || value === undefined || value === '') return null
@@ -10,11 +10,15 @@ function toNum(value) {
   return Number.isFinite(n) ? n : null
 }
 
+function publicCacheHeaders() {
+  return {
+    'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300',
+  }
+}
+
 function noStoreHeaders() {
   return {
-    'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0, s-maxage=0',
-    Pragma: 'no-cache',
-    Expires: '0',
+    'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
   }
 }
 
@@ -217,5 +221,5 @@ export async function GET(req) {
     limit,
     offset,
     has_more: (offset + limit) < (count || 0)
-  }, { headers: noStoreHeaders() })
+  }, { headers: publicCacheHeaders() })
 }

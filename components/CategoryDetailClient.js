@@ -27,7 +27,7 @@ export default function CategoryDetailClient({ slug }) {
   useEffect(() => {
     let active = true
     async function loadCategory() {
-      const res = await fetch(`/api/categories?slug=${encodeURIComponent(slug)}`, { cache: 'no-store' })
+      const res = await fetch(`/api/categories?slug=${encodeURIComponent(slug)}`)
       const data = await res.json().catch(() => null)
       if (!active) return
       const nextCategory = Array.isArray(data?.items) ? (data.items[0] || null) : (data || null)
@@ -61,8 +61,7 @@ export default function CategoryDetailClient({ slug }) {
     controllerRef.current = controller
 
     try {
-      const res = await fetch(`/api/public-pois?${requestKey}&t=${Date.now()}`, {
-        cache: 'no-store',
+      const res = await fetch(`/api/public-pois?${requestKey}`, {
         signal: controller.signal,
       })
       const data = await res.json().catch(() => ({ items: [] }))

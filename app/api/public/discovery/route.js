@@ -2,7 +2,7 @@ import { createSupabaseAdminClient } from '@/utils/supabase/admin'
 import { deriveThumbPath } from '@/lib/imageUpload'
 
 export const dynamic = 'force-dynamic'
-export const revalidate = 0
+export const revalidate = 300
 
 function groupByCount(rows, keySelector, titleSelector, slugSelector, limit = 8) {
   const map = new Map()
@@ -68,29 +68,31 @@ export async function GET(req) {
         if (!chosenByPoi[img.poi_id]) chosenByPoi[img.poi_id] = img
       }
 
-      const chosen = Object.values(chosenByPoi)
-      if (chosen.length) {
-        const paths = Array.from(new Set(chosen.flatMap((x) => [deriveThumbPath(x.path), x.path]).filter(Boolean)))
-        const signed = await admin.storage.from('poi-images').createSignedUrls(paths, 3600)
-        const signedByPath = {}
-        for (let i = 0; i < paths.length; i += 1) {
-          signedByPath[paths[i]] = signed.data?.[i]?.signedUrl || null
-        }
-        const chosenByPoiId = Object.fromEntries(chosen.map((img) => [img.poi_id, img]))
-        for (const row of (poiRows || [])) {
-          const img = chosenByPoiId[row.id]
-          const thumbPath = img ? deriveThumbPath(img.path) : null
-          coverBySlug[row.slug] = (thumbPath && signedByPath[thumbPath]) || (img?.path && signedByPath[img.path]) || null
+      const chosenByPoiId = Object.fromEntries(Object.values(chosenByPoi).map((img) => [img.poi_id, img]))
+      for (const row of (poiRows || [])) {
+        const img = chosenByPoiId[row.id]
+        if (!img?.path) continue
+        coverBySlug[row.slug] = {
+          cover_path: img.path,
+          cover_thumb_path: deriveThumbPath(img.path) || img.path,
         }
       }
     }
   }
 
-  const enrich = (item) => ({ ...item, image_url: coverBySlug[item.slug] || null })
+  const enrich = (item) => {
+    const cover = coverBySlug[item.slug] || {}
+    return {
+      ...item,
+      cover_path: cover.cover_path || null,
+      cover_thumb_path: cover.cover_thumb_path || null,
+      image_url: null,
+    }
+  }
 
   return Response.json({
     newest: (newestPois || []).map(enrich),
     popular: popular.map(enrich),
     mostReviewed: mostReviewed.map(enrich),
-  }, { headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0, s-maxage=0', Pragma: 'no-cache', Expires: '0' } })
+  }, { headers: { 'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=1800' } })
 }

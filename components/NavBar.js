@@ -4,6 +4,8 @@ import Link from 'next/link'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { createBrowserSupabaseClient } from '@/utils/supabase/client'
 import { authFetchJson } from '@/utils/authFetch'
+import { fetchPublicAppSettings, primePublicAppSettings } from '@/utils/publicAppSettings'
+import { fetchAdminAppSettings, primeAdminAppSettings } from '@/utils/adminAppSettings'
 import { Menu, Map, Tags, PlusSquare, LogIn, UserPlus, Heart, LayoutDashboard, FolderPen, PencilLine, LogOut, FolderOpenDot, Compass, CircleUserRound, Trophy, Wrench } from 'lucide-react'
 
 function MenuLink({ href, icon: Icon, children, onClick, badge = null, vertical = false, cta = false }) {
@@ -48,7 +50,7 @@ function RankingVisibilityToggle({ vertical = false }) {
   const [error, setError] = useState("")
 
   async function loadSetting() {
-    const data = await authFetchJson("/api/admin/app-settings?t=" + Date.now(), { cache: "no-store" }).catch((e) => ({ error: e.message }))
+    const data = await fetchAdminAppSettings().catch((e) => ({ error: e.message }))
     if (data.error) {
       setError(data.error)
       return
@@ -65,7 +67,7 @@ function RankingVisibilityToggle({ vertical = false }) {
     setSaving(true)
     setError("")
 
-    const data = await authFetchJson("/api/admin/app-settings?t=" + Date.now(), {
+    const data = await authFetchJson("/api/admin/app-settings", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ publicRankingVisible: nextValue }),
@@ -79,18 +81,18 @@ function RankingVisibilityToggle({ vertical = false }) {
       return
     }
 
-    const publicCheck = await fetch(`/api/public/app-settings?t=${Date.now()}`, { cache: 'no-store' })
-      .then((res) => res.json())
-      .catch((e) => ({ error: e.message }))
+    const publicCheck = await fetchPublicAppSettings({ force: true })
 
-    if (publicCheck.error || publicCheck.publicRankingVisible !== nextValue) {
+    if (publicCheck.publicRankingVisible !== nextValue) {
       setEnabled(previousValue)
-      setError(publicCheck.error || 'Ranking wurde gespeichert, aber die öffentliche Ansicht hat den neuen Wert noch nicht bestätigt. Bitte neu laden und erneut prüfen.')
+      setError('Ranking wurde gespeichert, aber die öffentliche Ansicht hat den neuen Wert noch nicht bestätigt. Bitte neu laden und erneut prüfen.')
       setSaving(false)
       return
     }
 
     setEnabled(nextValue)
+    primeAdminAppSettings({ publicRankingVisible: nextValue })
+    primePublicAppSettings({ publicRankingVisible: nextValue })
     window.dispatchEvent(new CustomEvent("app-settings-changed", { detail: { publicRankingVisible: nextValue } }))
     setSaving(false)
   }
@@ -110,7 +112,7 @@ function MaintenanceModeToggle({ vertical = false }) {
   const [error, setError] = useState('')
 
   async function loadSetting() {
-    const data = await authFetchJson('/api/admin/app-settings?t=' + Date.now(), { cache: 'no-store' }).catch((e) => ({ error: e.message }))
+    const data = await fetchAdminAppSettings().catch((e) => ({ error: e.message }))
     if (data.error) {
       setError(data.error)
       return
@@ -127,7 +129,7 @@ function MaintenanceModeToggle({ vertical = false }) {
     setSaving(true)
     setError('')
 
-    const data = await authFetchJson('/api/admin/app-settings?t=' + Date.now(), {
+    const data = await authFetchJson('/api/admin/app-settings', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ maintenanceMode: nextValue }),
@@ -142,6 +144,8 @@ function MaintenanceModeToggle({ vertical = false }) {
     }
 
     setEnabled(nextValue)
+    primeAdminAppSettings({ maintenanceMode: nextValue })
+    primePublicAppSettings({ maintenanceMode: nextValue })
     window.dispatchEvent(new CustomEvent('app-settings-changed', { detail: { maintenanceMode: nextValue } }))
     setSaving(false)
   }
@@ -221,7 +225,7 @@ export default function NavBar() {
     async function init() {
       const [sessionResult, settingsResult] = await Promise.all([
         supabase.auth.getSession(),
-        fetch('/api/public/app-settings?t=' + Date.now(), { cache: 'no-store' }).then((res) => res.json()).catch(() => ({ publicRankingVisible: false })),
+        fetchPublicAppSettings(),
       ])
       if (cancelled) return
       const u = sessionResult.data.session?.user ?? null
@@ -247,7 +251,7 @@ export default function NavBar() {
         if (!cancelled) setPublicRankingVisible(event.detail.publicRankingVisible === true)
         return
       }
-      const settingsResult = await fetch('/api/public/app-settings?t=' + Date.now(), { cache: 'no-store' }).then((res) => res.json()).catch(() => ({ publicRankingVisible: false }))
+      const settingsResult = await fetchPublicAppSettings({ force: true })
       if (!cancelled) setPublicRankingVisible(settingsResult.publicRankingVisible === true)
     }
 

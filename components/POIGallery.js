@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
+import OptimizedImage from '@/components/OptimizedImage'
 
 function Lightbox({ images, startIndex, poiTitle, onClose }) {
   const [index, setIndex] = useState(startIndex)
@@ -45,7 +46,7 @@ function Lightbox({ images, startIndex, poiTitle, onClose }) {
           <div className="poi-thumb-strip">
             {images.map((img, i) => (
               <button key={img.id || i} type="button" className={`poi-thumb ${i === index ? 'active' : ''}`} onClick={() => setIndex(i)}>
-                <img src={img.thumb_url || img.display_url || img.url} alt={img.caption || poiTitle} loading="lazy" />
+                <OptimizedImage src={img.thumb_url || img.display_url || img.url} alt={img.caption || poiTitle} width={160} height={90} loading="lazy" />
               </button>
             ))}
           </div>
@@ -58,7 +59,7 @@ function Lightbox({ images, startIndex, poiTitle, onClose }) {
           </div>
           {images.length > 1 ? <button type="button" aria-label="Vorheriges Bild" className="poi-lightbox-nav prev" onClick={(e) => { e.preventDefault(); e.stopPropagation(); prev() }}>‹</button> : null}
           <div className="poi-lightbox-image-wrap">
-            <img className="poi-lightbox-image contain" src={current.url || current.display_url || current.thumb_url} alt={current.caption || poiTitle} loading="eager" />
+            <OptimizedImage className="poi-lightbox-image contain" src={current.url || current.display_url || current.thumb_url} alt={current.caption || poiTitle} width={1600} height={1000} loading="eager" fetchPriority="high" />
             <div className="poi-lightbox-credit">
               {current.caption ? <div>{current.caption}</div> : null}
               {current.uploaded_by_label ? <div>Hochgeladen von: {current.uploaded_by_label}</div> : null}
@@ -83,13 +84,13 @@ export default function POIGallery({ images = [], poiTitle = '' }) {
     <>
       <div id="poi-gallery" className="poi-gallery-grid">
         <div className="poi-gallery-main" onClick={() => setOpenIndex(0)}>
-          <img src={main.display_url || main.url || main.thumb_url} alt={main.caption || poiTitle} loading="eager" />
+          <OptimizedImage src={main.display_url || main.url || main.thumb_url} alt={main.caption || poiTitle} width={1200} height={675} loading="eager" fetchPriority="high" sizes="(max-width: 960px) 100vw, 66vw" />
           {normalized.length > 1 ? <div className="poi-gallery-count">📷 {normalized.length}</div> : null}
         </div>
         <div className="poi-gallery-side">
           {side.map((img, i) => (
             <div key={img.id || i} className="poi-gallery-side-item" onClick={() => setOpenIndex(i + 1)}>
-              <img src={img.thumb_url || img.display_url || img.url} alt={img.caption || poiTitle} loading="lazy" />
+              <OptimizedImage src={img.thumb_url || img.display_url || img.url} alt={img.caption || poiTitle} width={160} height={90} loading="lazy" />
             </div>
           ))}
           {side.length < 4 ? Array.from({ length: 4 - side.length }).map((_, i) => <div key={`f-${i}`} className="poi-gallery-side-item" style={{ visibility:'hidden' }} />) : null}

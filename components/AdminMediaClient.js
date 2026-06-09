@@ -6,18 +6,30 @@ import { useSearchParams } from 'next/navigation'
 import { authFetchJson } from '@/utils/authFetch'
 import { deriveThumbPath } from '@/lib/imageUpload'
 
-const PAGE_SIZE_OPTIONS = [48, 72, 120, 180]
+const PAGE_SIZE_OPTIONS = [24, 48, 72, 120]
+const MEDIA_STATUSES = new Set(['pending', 'approved', 'rejected'])
+const signedUrlCache = new Map()
 
 function formatDate(value) {
   if (!value) return '—'
   try { return new Intl.DateTimeFormat('de-AT', { dateStyle:'medium', timeStyle:'short' }).format(new Date(value)) } catch { return value }
 }
 
+function normalizeStatus(value) {
+  return MEDIA_STATUSES.has(value) ? value : 'all'
+}
+
+function statusLabel(value) {
+  if (value === 'all') return 'alle Status'
+  return value
+}
+
 export default function AdminMediaClient() {
   const searchParams = useSearchParams()
-  const [status, setStatus] = useState(searchParams.get('status') || 'pending')
+  const [status, setStatus] = useState(() => normalizeStatus(searchParams.get('status')))
   const [items, setItems] = useState([])
-  const [urls, setUrls] = useState({})
+  const [thumbUrls, setThumbUrls] = useState({})
+  const [fullUrls, setFullUrls] = useState({})
   const [message, setMessage] = useState('')
   const [search, setSearch] = useState('')
   const [sortKey, setSortKey] = useState('created_at')
@@ -32,17 +44,20 @@ export default function AdminMediaClient() {
   const [hasMore, setHasMore] = useState(false)
 
   const load = useCallback(async (next = {}) => {
-    const nextStatus = next.status ?? status
+    const nextStatus = normalizeStatus(next.status ?? status)
     const nextPage = next.page ?? page
     const nextPageSize = next.pageSize ?? pageSize
     setLoading(true)
     setMessage('')
     const offset = nextPage * nextPageSize
-    const data = await authFetchJson(`/api/admin/media?status=${encodeURIComponent(nextStatus)}&limit=${nextPageSize}&offset=${offset}`)
+    const params = new URLSearchParams({ limit: String(nextPageSize), offset: String(offset) })
+    if (nextStatus !== 'all') params.set('status', nextStatus)
+    const data = await authFetchJson(`/api/admin/media?${params.toString()}`)
     setLoading(false)
     if (data.error) {
       setItems([])
-      setUrls({})
+      setThumbUrls({})
+      setFullUrls({})
       setMessage(data.error)
       return
     }
@@ -53,28 +68,39 @@ export default function AdminMediaClient() {
     setSelectedIds((prev) => prev.filter((id) => rows.some((row) => row.id === id)))
 
     if (rows.length) {
-      const paths = Array.from(new Set(rows.flatMap((x) => [x.thumb_path || deriveThumbPath(x.path), x.path].filter(Boolean))))
-      const signed = await fetch('/api/images/signed-urls', {
-        method:'POST',
-        headers:{ 'Content-Type':'application/json' },
-        body: JSON.stringify({ paths })
-      }).then((r) => r.json()).catch(() => ({ urls:{} }))
-      setUrls(signed.urls || {})
+      const paths = Array.from(new Set(rows.map((x) => x.thumb_path || deriveThumbPath(x.path)).filter(Boolean)))
+      const cachedUrls = Object.fromEntries(paths.map((path) => [path, signedUrlCache.get(`thumb:${path}`)]).filter(([, url]) => Boolean(url)))
+      const missingPaths = paths.filter((path) => !cachedUrls[path])
+      let freshUrls = {}
+      if (missingPaths.length) {
+        const signed = await fetch('/api/images/signed-urls', {
+          method:'POST',
+          headers:{ 'Content-Type':'application/json' },
+          body: JSON.stringify({
+            paths: missingPaths,
+            transform: { width: 320, height: 240, resize: 'cover', quality: 55 }
+          })
+        }).then((r) => r.json()).catch(() => ({ urls:{} }))
+        freshUrls = signed.urls || {}
+        Object.entries(freshUrls).forEach(([path, url]) => signedUrlCache.set(`thumb:${path}`, url))
+      }
+      setThumbUrls({ ...cachedUrls, ...freshUrls })
+      setFullUrls({})
     } else {
-      setUrls({})
+      setThumbUrls({})
+      setFullUrls({})
     }
   }, [status, page, pageSize])
 
   useEffect(() => {
-    const nextStatus = searchParams.get('status') || 'pending'
-    setStatus(nextStatus)
+    const nextStatus = normalizeStatus(searchParams.get('status'))
+    setStatus((current) => current === nextStatus ? current : nextStatus)
     setPage(0)
-    load({ status: nextStatus, page: 0 })
-  }, [searchParams]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [searchParams])
 
   useEffect(() => {
-    load({ page, pageSize })
-  }, [page, pageSize]) // eslint-disable-line react-hooks/exhaustive-deps
+    load({ status, page, pageSize })
+  }, [status, page, pageSize]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const filtered = useMemo(() => {
     let rows = [...items]
@@ -150,11 +176,30 @@ export default function AdminMediaClient() {
   }
   function visibleImageUrl(img) {
     const thumbPath = img.thumb_path || deriveThumbPath(img.path)
-    return urls[thumbPath] || img.thumb_url || urls[img.path] || null
+    return thumbUrls[thumbPath] || img.thumb_url || null
   }
   function largeImageUrl(img) {
     const thumbPath = img.thumb_path || deriveThumbPath(img.path)
-    return urls[thumbPath] || img.thumb_url || urls[img.path] || null
+    return fullUrls[img.path] || thumbUrls[thumbPath] || img.thumb_url || null
+  }
+  async function ensureFullImageUrl(img) {
+    if (!img?.path || fullUrls[img.path]) return
+    const cacheKey = `full:${img.path}`
+    const cachedUrl = signedUrlCache.get(cacheKey)
+    if (cachedUrl) {
+      setFullUrls((prev) => ({ ...prev, [img.path]: cachedUrl }))
+      return
+    }
+    const signed = await fetch('/api/images/signed-urls', {
+      method:'POST',
+      headers:{ 'Content-Type':'application/json' },
+      body: JSON.stringify({ paths: [img.path] })
+    }).then((r) => r.json()).catch(() => ({ urls:{} }))
+    const nextUrl = signed.urls?.[img.path]
+    if (nextUrl) {
+      signedUrlCache.set(cacheKey, nextUrl)
+      setFullUrls((prev) => ({ ...prev, [img.path]: nextUrl }))
+    }
   }
   async function bulkApprove() { if (selectedIds.length) { await updateImage({ ids: selectedIds, status:'approved' }); setSelectedIds([]) } }
   async function bulkReject() { if (selectedIds.length) { await updateImage({ ids: selectedIds, status:'rejected' }); setSelectedIds([]) } }
@@ -179,6 +224,11 @@ export default function AdminMediaClient() {
     return () => window.removeEventListener('keydown', onKey)
   }, [previewFullscreen, activePreviewIndex, filtered])
 
+  useEffect(() => {
+    if (!previewFullscreen || !activePreview) return
+    ensureFullImageUrl(activePreview)
+  }, [previewFullscreen, activePreview]) // eslint-disable-line react-hooks/exhaustive-deps
+
   return (
     <main className="container admin-editor-container">
       <h1>Admin / Medien</h1>
@@ -186,7 +236,7 @@ export default function AdminMediaClient() {
 
       <div className="card" style={{ marginBottom:16 }}>
         <div className="admin-media-filterbar">
-          <div><label className="label">Status</label><select className="select" value={status} onChange={(e)=>{ setStatus(e.target.value); setPage(0); load({ status:e.target.value, page:0 }) }}><option value="pending">pending</option><option value="rejected">rejected</option><option value="approved">approved</option></select></div>
+          <div><label className="label">Status</label><select className="select" value={status} onChange={(e)=>{ setStatus(normalizeStatus(e.target.value)); setPage(0) }}><option value="all">alle Status</option><option value="pending">pending</option><option value="approved">approved</option><option value="rejected">rejected</option></select></div>
           <div><label className="label">Suche auf dieser Seite</label><input className="input" value={search} onChange={(e)=>setSearch(e.target.value)} placeholder="POI oder Bildtext" /></div>
           <div><label className="label">Sortierung</label><select className="select" value={sortKey} onChange={(e)=>setSortKey(e.target.value)}><option value="created_at">neueste zuerst</option><option value="title">POI Titel</option></select></div>
           <div><label className="label">Bilder pro Seite</label><select className="select" value={pageSize} onChange={(e)=>{ setPageSize(Number(e.target.value)); setPage(0) }}>{PAGE_SIZE_OPTIONS.map((n)=><option key={n} value={n}>{n}</option>)}</select></div>
@@ -202,7 +252,7 @@ export default function AdminMediaClient() {
             <button type="button" className="btn btn-secondary" disabled={!hasMore || loading} onClick={() => setPage((p) => p + 1)}>Weiter</button>
           </div>
         </div>
-        <p className="muted" style={{ margin:'8px 0 0' }}>Die Administration lädt Bilder seitenweise. So bleibt sie auch bei vielen Nutzer-Uploads schnell und übersichtlich.</p>
+        <p className="muted" style={{ margin:'8px 0 0' }}>Die Administration lädt Bilder seitenweise und nutzt kleine Admin-Thumbnails. Originalbilder werden erst für die Großansicht geladen.</p>
       </div>
 
       <div className="admin-media-layout">
@@ -215,7 +265,7 @@ export default function AdminMediaClient() {
                 <div className="admin-media-group-header">
                   <div>
                     <h3 style={{ margin:'0 0 4px' }}>{rows[0]?.pois?.slug ? <Link href={`/poi/${rows[0].pois.slug}`} className="poi-inline-link">{title}</Link> : title}</h3>
-                    <p className="muted" style={{ margin:0 }}>{rows.length} Bild{rows.length === 1 ? '' : 'er'} auf dieser Seite · Statusfilter: {status}</p>
+                    <p className="muted" style={{ margin:0 }}>{rows.length} Bild{rows.length === 1 ? '' : 'er'} auf dieser Seite · Statusfilter: {statusLabel(status)}</p>
                   </div>
                   <div style={{ display:'flex', gap:8, flexWrap:'wrap', alignItems:'center' }}>
                     <label className="admin-media-selectall"><input type="checkbox" checked={allSelected} ref={(el) => { if (el) el.indeterminate = !allSelected && someSelected }} onChange={(e) => toggleGroup(rows, e.target.checked)} />Alle markieren</label>
@@ -229,7 +279,7 @@ export default function AdminMediaClient() {
                     return (
                       <article key={img.id} className={`admin-media-thumb ${selected ? 'is-selected' : ''} ${activePreview?.id === img.id ? 'is-active' : ''}`} onClick={() => setActivePreview(img)}>
                         <label className="admin-media-check" onClick={(e) => e.stopPropagation()}><input type="checkbox" checked={selected} onChange={() => toggleSelect(img.id)} /></label>
-                        <div className="admin-media-thumb-image">{previewUrl ? <img src={previewUrl} alt={img.caption || title} loading="lazy" /> : <div className="muted">Kein Bild</div>}</div>
+                        <div className="admin-media-thumb-image">{previewUrl ? <img src={previewUrl} alt={img.caption || title} loading="lazy" decoding="async" width="320" height="240" /> : <div className="muted">Kein Bild</div>}</div>
                         <div className="admin-media-thumb-body"><div className="admin-media-thumb-topline"><span className={`status-pill status-${img.status}`}>{img.status}</span>{img.is_cover ? <span className="badge">Cover</span> : null}{img.is_gallery_pick ? <span className="badge">Galerie</span> : null}</div><strong className="admin-media-thumb-caption">{img.caption || 'Ohne Bildtext'}</strong><span className="muted admin-media-thumb-date">{formatDate(img.created_at)}</span></div>
                       </article>
                     )
@@ -242,7 +292,7 @@ export default function AdminMediaClient() {
 
         <aside className="card admin-media-preview-card">
           {!activePreview ? <p className="muted">Keine Bilder gefunden.</p> : <>
-            <button type="button" className="admin-media-preview-image" onClick={() => setPreviewFullscreen(true)} title="Großansicht öffnen">{largeImageUrl(activePreview) ? <img src={largeImageUrl(activePreview)} alt={activePreview.caption || activePreview.pois?.title || 'Bild'} /> : <div className="muted">Kein Bild verfügbar</div>}</button>
+            <button type="button" className="admin-media-preview-image" onClick={() => { setPreviewFullscreen(true); ensureFullImageUrl(activePreview) }} title="Großansicht öffnen">{largeImageUrl(activePreview) ? <img src={largeImageUrl(activePreview)} alt={activePreview.caption || activePreview.pois?.title || 'Bild'} decoding="async" /> : <div className="muted">Kein Bild verfügbar</div>}</button>
             <div className="admin-media-preview-meta"><h3 style={{ margin:'0 0 6px' }}>{activePreview.pois?.title || 'Ohne POI'}</h3><p style={{ margin:'0 0 8px' }}>{activePreview.caption || 'Kein Bildtext vorhanden.'}</p><div style={{ display:'flex', gap:8, flexWrap:'wrap', marginBottom:8 }}><span className={`status-pill status-${activePreview.status}`}>{activePreview.status}</span>{activePreview.is_cover ? <span className="badge">Aktuelles Cover</span> : null}{activePreview.is_gallery_pick ? <span className="badge">In Galerie</span> : null}</div><p className="muted" style={{ margin:'0 0 14px' }}>Hochgeladen am {formatDate(activePreview.created_at)}</p><div style={{ display:'grid', gap:8 }}><button type="button" className="btn" disabled={busy} onClick={() => updateImage({ id: activePreview.id, status:'approved' })}>Freigeben</button><button type="button" className="btn btn-danger" disabled={busy} onClick={() => updateImage({ id: activePreview.id, status:'rejected' })}>Ablehnen</button><button type="button" className="btn btn-secondary" disabled={busy} onClick={() => updateImage({ id: activePreview.id, is_cover:true })}>Als Cover festlegen</button><button type="button" className="btn btn-secondary" disabled={busy} onClick={() => updateImage({ id: activePreview.id, is_gallery_pick: !activePreview.is_gallery_pick })}>{activePreview.is_gallery_pick ? 'Aus Galerie entfernen' : 'Zur Galerie hinzufügen'}</button></div></div>
           </>}
         </aside>
@@ -251,7 +301,7 @@ export default function AdminMediaClient() {
         <div className="admin-media-lightbox" role="dialog" aria-modal="true" onClick={() => setPreviewFullscreen(false)}>
           <button type="button" className="admin-media-lightbox-close" onClick={() => setPreviewFullscreen(false)}>Schließen</button>
           {filtered.length > 1 ? <button type="button" className="admin-media-lightbox-nav admin-media-lightbox-prev" onClick={showPreviousPreview} aria-label="Vorheriges Bild">‹</button> : null}
-          {largeImageUrl(activePreview) ? <img src={largeImageUrl(activePreview)} alt={activePreview.caption || activePreview.pois?.title || "Bild"} onClick={(e) => e.stopPropagation()} /> : null}
+          {largeImageUrl(activePreview) ? <img src={largeImageUrl(activePreview)} alt={activePreview.caption || activePreview.pois?.title || "Bild"} decoding="async" onClick={(e) => e.stopPropagation()} /> : null}
           {filtered.length > 1 ? <button type="button" className="admin-media-lightbox-nav admin-media-lightbox-next" onClick={showNextPreview} aria-label="Nächstes Bild">›</button> : null}
           <div className="admin-media-lightbox-caption" onClick={(e) => e.stopPropagation()}>
             <strong>{activePreview.pois?.title || 'Ohne POI'}</strong>
