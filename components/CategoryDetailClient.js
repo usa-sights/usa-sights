@@ -19,7 +19,9 @@ export default function CategoryDetailClient({ slug }) {
   const [category, setCategory] = useState(undefined)
   const [pois, setPois] = useState([])
   const [search, setSearch] = useState('')
+  const [isMapVisible, setIsMapVisible] = useState(false)
   const viewportRef = useRef(null)
+  const mapShellRef = useRef(null)
   const requestKeyRef = useRef('')
   const controllerRef = useRef(null)
   const debouncedSearch = useDebouncedValue(search.trim(), 220)
@@ -27,7 +29,7 @@ export default function CategoryDetailClient({ slug }) {
   useEffect(() => {
     let active = true
     async function loadCategory() {
-      const res = await fetch(`/api/categories?slug=${encodeURIComponent(slug)}`)
+      const res = await fetch(`/api/categories?slug=${encodeURIComponent(slug)}&active=1`)
       const data = await res.json().catch(() => null)
       if (!active) return
       const nextCategory = Array.isArray(data?.items) ? (data.items[0] || null) : (data || null)
@@ -43,7 +45,6 @@ export default function CategoryDetailClient({ slug }) {
     viewportRef.current = bounds
     const params = new URLSearchParams({
       category_id: String(category.id),
-      include_images: '1',
       limit: '500',
       minLat: String(bounds.minLat),
       maxLat: String(bounds.maxLat),
@@ -72,10 +73,30 @@ export default function CategoryDetailClient({ slug }) {
   }, [category?.id, debouncedSearch])
 
   useEffect(() => {
-    if (!category?.id) return
+    if (!category?.id || !isMapVisible) return
     requestKeyRef.current = ''
     loadPois(viewportRef.current || { minLat: 24, maxLat: 50, minLng: -125, maxLng: -66, zoom: 4 }, debouncedSearch)
-  }, [category?.id, debouncedSearch, loadPois])
+  }, [category?.id, isMapVisible, debouncedSearch, loadPois])
+
+  useEffect(() => {
+    const element = mapShellRef.current
+    if (!element || typeof IntersectionObserver === 'undefined') {
+      setIsMapVisible(true)
+      return undefined
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (!entries.some((entry) => entry.isIntersecting)) return
+        setIsMapVisible(true)
+        observer.disconnect()
+      },
+      { rootMargin: '450px 0px', threshold: 0.01 }
+    )
+
+    observer.observe(element)
+    return () => observer.disconnect()
+  }, [])
 
   useAppDataRefresh(() => {
     requestKeyRef.current = ''
@@ -97,17 +118,21 @@ export default function CategoryDetailClient({ slug }) {
 
       <PublicDiscoverySection categoryId={category.id} titlePrefix={`${category.name} ·`} />
 
-      <div className="card category-map-card" style={{ padding: 0, overflow: 'visible', marginTop: 16 }}>
+      <div ref={mapShellRef} className="card category-map-card" style={{ padding: 0, overflow: 'visible', marginTop: 16 }}>
         <div className="home-map category-home-map" style={{ height: '78vh', overflow: 'visible' }}>
-          <ExploreMap
-            key={`category-map-${category.id}`}
-            points={pois}
-            onViewportChange={loadPois}
-            fullScreen
-            showTrailToggle
-            mapContext="category"
-            height="78vh"
-          />
+          {isMapVisible ? (
+            <ExploreMap
+              key={`category-map-${category.id}`}
+              points={pois}
+              onViewportChange={loadPois}
+              fullScreen
+              showTrailToggle
+              mapContext="category"
+              height="78vh"
+            />
+          ) : (
+            <div className="map-placeholder" aria-hidden="true">Karte wird geladen …</div>
+          )}
         </div>
       </div>
 

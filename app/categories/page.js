@@ -2,28 +2,33 @@ import Link from 'next/link'
 import { createSupabaseAdminClient } from '@/utils/supabase/admin'
 import PublicDiscoverySection from '@/components/PublicDiscoverySection'
 
-export const dynamic = 'force-dynamic'
+export const revalidate = 600
+
+async function getPublishedPoiCounts(admin, categories = []) {
+  const entries = await Promise.all((categories || []).map(async (category) => {
+    const { count, error } = await admin
+      .from('pois')
+      .select('id', { count: 'exact', head: true })
+      .eq('status', 'published')
+      .eq('category_id', category.id)
+
+    if (error) return [category.id, 0]
+    return [category.id, count || 0]
+  }))
+
+  return Object.fromEntries(entries)
+}
 
 export default async function CategoriesPage() {
   const admin = createSupabaseAdminClient()
   const { data: categories } = await admin
     .from('categories')
-    .select('*')
+    .select('id,name,slug,description,sort_order')
     .eq('is_active', true)
     .order('sort_order')
+    .order('name')
 
-  const ids = (categories || []).map((c) => c.id)
-  const counts = {}
-  if (ids.length) {
-    const { data: pois } = await admin
-      .from('pois')
-      .select('id,category_id')
-      .eq('status', 'published')
-      .in('category_id', ids)
-    for (const poi of (pois || [])) {
-      counts[poi.category_id] = (counts[poi.category_id] || 0) + 1
-    }
-  }
+  const counts = await getPublishedPoiCounts(admin, categories || [])
 
   return (
     <main className="container admin-editor-container">

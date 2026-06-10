@@ -1,11 +1,9 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react'
-import { createBrowserSupabaseClient } from '@/utils/supabase/client'
 import ExploreMap from '@/components/ExploreMap'
 
 export default function ExploreClient() {
-  const supabase = useMemo(() => createBrowserSupabaseClient(), [])
   const [pois, setPois] = useState([])
   const [categories, setCategories] = useState([])
   const [states, setStates] = useState([])
@@ -17,12 +15,17 @@ export default function ExploreClient() {
   const abortRef = useRef(null)
 
   useEffect(() => {
+    let active = true
     async function init() {
-      const { data: cats } = await supabase.from('categories').select('id,name').eq('is_active', true).order('sort_order')
-      setCategories(cats || [])
+      const res = await fetch('/api/categories?active=1')
+      const data = await res.json().catch(() => ({ items: [] }))
+      if (!active) return
+      const cats = Array.isArray(data?.items) ? data.items : []
+      setCategories(cats.map((cat) => ({ id: cat.id, name: cat.name })).filter((cat) => cat.id && cat.name))
     }
-    init()
-  }, [supabase])
+    init().catch((error) => console.error(error))
+    return () => { active = false }
+  }, [])
 
   const loadPois = useCallback(async (nextViewport = viewportRef.current) => {
     if (!nextViewport) return
