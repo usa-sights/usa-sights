@@ -1,8 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { useEffect, useMemo, useRef, useState } from 'react'
-import { createBrowserSupabaseClient } from '@/utils/supabase/client'
+import { useEffect, useRef, useState } from 'react'
 import { authFetchJson } from '@/utils/authFetch'
 import { fetchPublicAppSettings, primePublicAppSettings } from '@/utils/publicAppSettings'
 import { fetchAdminAppSettings, primeAdminAppSettings } from '@/utils/adminAppSettings'
@@ -169,8 +168,22 @@ function MaintenanceModeToggle({ vertical = false }) {
   )
 }
 
+function scheduleIdleTask(callback) {
+  if (typeof window === 'undefined') return () => {}
+  if ('requestIdleCallback' in window) {
+    const id = window.requestIdleCallback(callback, { timeout: 1200 })
+    return () => window.cancelIdleCallback?.(id)
+  }
+  const id = window.setTimeout(callback, 250)
+  return () => window.clearTimeout(id)
+}
+
+async function getSupabaseClient() {
+  const mod = await import('@/utils/supabase/client')
+  return mod.createBrowserSupabaseClient()
+}
+
 export default function NavBar() {
-  const supabase = useMemo(() => createBrowserSupabaseClient(), [])
   const [user, setUser] = useState(null)
   const [role, setRole] = useState(null)
   const [pendingCount, setPendingCount] = useState(0)
@@ -179,6 +192,7 @@ export default function NavBar() {
   const [publicRankingVisible, setPublicRankingVisible] = useState(false)
   const currentUserRef = useRef(null)
   const profileRefreshRef = useRef(null)
+  const supabaseRef = useRef(null)
 
   async function refreshProfile(currentUser) {
     currentUserRef.current = currentUser
@@ -212,7 +226,11 @@ export default function NavBar() {
   profileRefreshRef.current = refreshProfile
 
   async function doLogout() {
-    try { await supabase.auth.signOut({ scope: 'global' }) } catch {}
+    try {
+      const supabase = supabaseRef.current || await getSupabaseClient()
+      supabaseRef.current = supabase
+      await supabase.auth.signOut({ scope: 'global' })
+    } catch {}
     if (typeof window !== 'undefined') {
       Object.keys(localStorage).filter((k) => k.startsWith('sb-')).forEach((k) => localStorage.removeItem(k))
       window.location.href = '/'
@@ -221,27 +239,36 @@ export default function NavBar() {
 
   useEffect(() => {
     let cancelled = false
+    let unsubscribeAuth = null
+    let cancelIdle = null
 
-    async function init() {
-      const [sessionResult, settingsResult] = await Promise.all([
-        supabase.auth.getSession(),
-        fetchPublicAppSettings(),
-      ])
+    async function loadPublicSettings({ force = false } = {}) {
+      const settingsResult = await fetchPublicAppSettings({ force })
+      if (!cancelled) setPublicRankingVisible(settingsResult.publicRankingVisible === true)
+    }
+
+    async function initAuth() {
+      const supabase = await getSupabaseClient().catch(() => null)
+      if (!supabase || cancelled) return
+      supabaseRef.current = supabase
+
+      const sessionResult = await supabase.auth.getSession().catch(() => ({ data: { session: null } }))
       if (cancelled) return
       const u = sessionResult.data.session?.user ?? null
       setUser(u)
-      setPublicRankingVisible(settingsResult.publicRankingVisible === true)
       await profileRefreshRef.current?.(u)
+
+      const { data: sub } = supabase.auth.onAuthStateChange(async (_event, session) => {
+        const nextUser = session?.user ?? null
+        currentUserRef.current = nextUser
+        setUser(nextUser)
+        await profileRefreshRef.current?.(nextUser)
+      })
+      unsubscribeAuth = () => sub?.subscription?.unsubscribe?.()
     }
 
-    init()
-
-    const { data: sub } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      const u = session?.user ?? null
-      currentUserRef.current = u
-      setUser(u)
-      await profileRefreshRef.current?.(u)
-    })
+    loadPublicSettings()
+    cancelIdle = scheduleIdleTask(initAuth)
 
     async function onPendingChanged() {
       await profileRefreshRef.current?.(currentUserRef.current)
@@ -251,8 +278,7 @@ export default function NavBar() {
         if (!cancelled) setPublicRankingVisible(event.detail.publicRankingVisible === true)
         return
       }
-      const settingsResult = await fetchPublicAppSettings({ force: true })
-      if (!cancelled) setPublicRankingVisible(settingsResult.publicRankingVisible === true)
+      await loadPublicSettings({ force: true })
     }
 
     window.addEventListener('admin-pending-changed', onPendingChanged)
@@ -260,11 +286,12 @@ export default function NavBar() {
 
     return () => {
       cancelled = true
-      sub.subscription.unsubscribe()
+      cancelIdle?.()
+      unsubscribeAuth?.()
       window.removeEventListener('admin-pending-changed', onPendingChanged)
       window.removeEventListener('app-settings-changed', onSettingsChanged)
     }
-  }, [supabase])
+  }, [])
 
   return (
     <>

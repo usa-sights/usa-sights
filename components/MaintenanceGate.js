@@ -1,9 +1,8 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { usePathname } from 'next/navigation'
 import { Wrench } from 'lucide-react'
-import { createBrowserSupabaseClient } from '@/utils/supabase/client'
 import { authFetchJson } from '@/utils/authFetch'
 import { fetchPublicAppSettings, primePublicAppSettings } from '@/utils/publicAppSettings'
 
@@ -23,9 +22,13 @@ function MaintenanceScreen() {
   )
 }
 
+async function getSupabaseClient() {
+  const mod = await import('@/utils/supabase/client')
+  return mod.createBrowserSupabaseClient()
+}
+
 export default function MaintenanceGate({ children }) {
   const pathname = usePathname() || '/'
-  const supabase = useMemo(() => createBrowserSupabaseClient(), [])
   const [maintenanceMode, setMaintenanceMode] = useState(false)
   const [isAdmin, setIsAdmin] = useState(false)
   const [ready, setReady] = useState(false)
@@ -59,7 +62,10 @@ export default function MaintenanceGate({ children }) {
       }
 
       let admin = false
-      const sessionResult = await supabase.auth.getSession().catch(() => ({ data: { session: null } }))
+      const supabase = await getSupabaseClient().catch(() => null)
+      const sessionResult = supabase
+        ? await supabase.auth.getSession().catch(() => ({ data: { session: null } }))
+        : { data: { session: null } }
       if (sessionResult.data?.session?.user) {
         const profile = await authFetchJson('/api/me/profile').catch(() => null)
         admin = profile?.item?.role === 'admin'
@@ -86,7 +92,7 @@ export default function MaintenanceGate({ children }) {
       cancelled = true
       window.removeEventListener('app-settings-changed', onSettingsChanged)
     }
-  }, [adminOrAuthPath, supabase])
+  }, [adminOrAuthPath])
 
   if (!ready) return children
   if (maintenanceMode && !isAdmin && !adminOrAuthPath) return <MaintenanceScreen />
