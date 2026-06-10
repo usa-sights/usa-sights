@@ -1,13 +1,10 @@
-import { unstable_noStore as noStore } from 'next/cache'
 import UserRankingClient from '@/components/UserRankingClient'
 import { getPublicRankingVisible } from '@/lib/appSettings'
 
 export const dynamic = 'force-dynamic'
-export const revalidate = 0
+export const revalidate = 60
 
 export default async function Page() {
-  noStore()
-
   let setting
   try {
     setting = await getPublicRankingVisible()

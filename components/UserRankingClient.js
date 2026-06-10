@@ -36,12 +36,12 @@ export default function UserRankingClient() {
 
   useEffect(() => {
     async function load() {
-      const params = new URLSearchParams({ sort: sortKey, dir: sortDir, page: String(page), page_size: '25', t: String(Date.now()) })
+      const params = new URLSearchParams({ sort: sortKey, dir: sortDir, page: String(page), page_size: '25' })
       if (selected.userId && selected.contentType) {
         params.set('user_id', selected.userId)
         params.set('content_type', selected.contentType)
       }
-      const res = await fetch(`/api/public/user-ranking?${params.toString()}`, { cache: 'no-store' })
+      const res = await fetch(`/api/public/user-ranking?${params.toString()}`)
       const next = await res.json()
       if (next.error) return setMessage(next.error)
       setMessage('')
@@ -140,7 +140,7 @@ export default function UserRankingClient() {
           <div className="dashboard-content-list" style={{ marginTop:12 }}>
             {(data.details || []).map((item) => item.href ? (
               <Link key={`${item.id}-${item.href}`} href={item.href} className="dashboard-list-item dashboard-list-item-thumb">
-                {item.kind === 'image' && item.thumb_url ? <img className="content-thumb" src={item.thumb_url} alt={item.title} loading="lazy" /> : null}
+                {item.kind === 'image' && item.thumb_url ? <img className="content-thumb" src={item.thumb_url} alt={item.title} loading="lazy" decoding="async" width="96" height="72" /> : null}
                 <div>
                   <strong>{item.title}</strong>
                   <small>{item.meta}</small>
@@ -150,7 +150,7 @@ export default function UserRankingClient() {
               </Link>
             ) : (
               <div key={item.id} className="dashboard-list-item dashboard-list-item-thumb">
-                {item.kind === 'image' && item.thumb_url ? <img className="content-thumb" src={item.thumb_url} alt={item.title} loading="lazy" /> : null}
+                {item.kind === 'image' && item.thumb_url ? <img className="content-thumb" src={item.thumb_url} alt={item.title} loading="lazy" decoding="async" width="96" height="72" /> : null}
                 <div>
                   <strong>{item.title}</strong>
                   <small>{item.meta}</small>
