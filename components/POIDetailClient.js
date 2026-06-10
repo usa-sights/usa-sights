@@ -1,12 +1,12 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import dynamic from 'next/dynamic'
 import { createBrowserSupabaseClient } from '@/utils/supabase/client'
 import AdminEditHint from '@/components/AdminEditHint'
 import POIGallery from '@/components/POIGallery'
-import POIReviews, { POIReviewOverview } from '@/components/POIReviews'
+import POIReviewOverview from '@/components/POIReviewOverview'
 import AffiliateSmartCards from '@/components/AffiliateSmartCards'
-import UserPOIImageUploader from '@/components/UserPOIImageUploader'
 import { buildSmartAffiliateCards } from '@/lib/affiliateSmart'
 import { normalizeEditorialRecord, normalizeList, normalizeFamilyFriendly } from '@/lib/poiEditorial'
 import { getNavigationButtons } from '@/lib/map/poiUtils'
@@ -16,6 +16,66 @@ const asList = (v) => normalizeList(v)
 
 function Section({ id = null, title, children }) {
   return <div id={id || undefined} className="card" style={{ marginTop: 16 }}><h2>{title}</h2>{children}</div>
+}
+
+
+const POIReviews = dynamic(() => import('@/components/POIReviews'), {
+  ssr: false,
+  loading: () => <div id="poi-reviews" className="card" style={{ marginTop: 16 }}><h2>Bewertungen & Meinungen</h2><p className="muted">Bewertungen werden geladen ...</p></div>,
+})
+
+const UserPOIImageUploader = dynamic(() => import('@/components/UserPOIImageUploader'), {
+  ssr: false,
+  loading: () => <div className="card" style={{ marginTop: 12 }}><p className="muted">Upload-Bereich wird geladen ...</p></div>,
+})
+
+function shouldOpenReviewsFromLocation() {
+  if (typeof window === 'undefined') return false
+  const hash = window.location.hash || ''
+  const params = new URLSearchParams(window.location.search || '')
+  return hash === '#poi-reviews' || hash.startsWith('#review-') || hash.startsWith('#reply-') ||
+    params.has('review_stars') || params.has('review_period') || params.has('review_text') || params.has('review_sort')
+}
+
+function LazyPOIReviews({ poiId, onChanged }) {
+  const [shouldLoad, setShouldLoad] = useState(() => shouldOpenReviewsFromLocation())
+  const placeholderRef = useRef(null)
+
+  useEffect(() => {
+    if (shouldLoad) return undefined
+
+    function openFromHash() {
+      if (shouldOpenReviewsFromLocation()) setShouldLoad(true)
+    }
+
+    window.addEventListener('hashchange', openFromHash)
+    const node = placeholderRef.current
+    const observer = typeof IntersectionObserver !== 'undefined' && node
+      ? new IntersectionObserver((entries) => {
+          if (entries.some((entry) => entry.isIntersecting)) {
+            setShouldLoad(true)
+            observer.disconnect()
+          }
+        }, { rootMargin: '900px 0px' })
+      : null
+
+    if (observer && node) observer.observe(node)
+    else window.setTimeout(() => setShouldLoad(true), 1200)
+
+    return () => {
+      window.removeEventListener('hashchange', openFromHash)
+      observer?.disconnect()
+    }
+  }, [shouldLoad])
+
+  if (shouldLoad) return <POIReviews poiId={poiId} onChanged={onChanged} />
+
+  return (
+    <div ref={placeholderRef} id="poi-reviews" className="card" style={{ marginTop: 16 }}>
+      <h2>Bewertungen & Meinungen</h2>
+      <p className="muted">Bewertungen werden geladen, sobald du diesen Bereich erreichst.</p>
+    </div>
+  )
 }
 
 function websiteLabel(url) {
@@ -265,7 +325,7 @@ export default function POIDetailClient({ slug }) {
         </div>
       )}
 
-      <POIReviews poiId={poi.id} onChanged={() => { setReviewRefreshKey((x) => x + 1); loadPoi({ fresh: true }) }} />
+      <LazyPOIReviews poiId={poi.id} onChanged={() => { setReviewRefreshKey((x) => x + 1); loadPoi({ fresh: true }) }} />
     </main>
   )
 }

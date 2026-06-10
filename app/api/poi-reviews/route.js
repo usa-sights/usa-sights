@@ -60,9 +60,33 @@ export async function GET(req) {
   const { searchParams } = new URL(req.url)
   const poiId = searchParams.get('poi_id')
   const fresh = searchParams.get('fresh') === '1'
+  const summaryOnly = searchParams.get('summary') === '1'
   if (!poiId) return Response.json({ error: 'poi_id fehlt' }, { status: 400, headers: noStoreHeaders() })
 
   const admin = createSupabaseAdminClient()
+
+  if (summaryOnly) {
+    const { data: summaryRows, error: summaryError } = await admin
+      .from('poi_reviews')
+      .select('id,rating')
+      .eq('poi_id', poiId)
+
+    if (summaryError) return Response.json({ error: summaryError.message }, { status: 500, headers: noStoreHeaders() })
+
+    const normalizedRows = (summaryRows || []).map((row) => normalizeReviewRow(row))
+    const stats = calculateReviewStats(normalizedRows)
+    return Response.json({
+      items: [],
+      count: stats.count,
+      average: stats.average,
+      total_count: stats.count,
+      total_average: stats.average,
+      distribution: calculateRatingDistribution(normalizedRows),
+    }, {
+      headers: fresh ? noStoreHeaders() : publicCacheHeaders(),
+    })
+  }
+
   const { data: reviews, error } = await admin
     .from('poi_reviews')
     .select('*')
