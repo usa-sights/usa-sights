@@ -1,61 +1,58 @@
-# Performance Step 13 – Shared signed URL batching and faster Admin Media first paint
+# Performance Step 13 – Hero Stats lazy loading and stats API cache
 
 ## Ziel
 
-Dieser Schritt reduziert die Anzahl paralleler Bild-Signing-Requests im Frontend und verbessert die gefühlte Ladezeit in `/admin/media`, insbesondere bei 72 Bildern pro Seite und langsameren Verbindungen.
+Dieser Schritt reduziert Arbeit direkt beim ersten Seitenaufruf der Startseite und entlastet gleichzeitig die öffentliche Statistik-API.
 
-Es wurden keine Aufruf-/View-Zählungen verändert.
+Es wurden keine Änderungen an `/admin/media` und keine Änderungen an der Aufruf-/View-Zählung vorgenommen.
 
 ## Änderungen
 
-### 1. Gemeinsamer Client-Cache für signierte Bild-URLs
+### 1. Hero-Statistiken laden erst bei Bedarf
+
+`components/HomeUserStats.js` lädt `/api/public/stats` nicht mehr sofort beim Mount der Komponente.
 
 Neu:
 
-- `utils/clientSignedUrls.js`
+- Die Quick-Facts behalten ihren Layout-Platz mit Platzhaltern.
+- Der Statistik-Request startet erst, wenn der Bereich sichtbar oder fast sichtbar ist.
+- Der erste Request wird über `requestIdleCallback` beziehungsweise einen kleinen Fallback verzögert, damit er den Seitenstart nicht blockiert.
+- Auto-Refresh startet erst, nachdem Statistiken überhaupt einmal geladen wurden.
+- Das Refresh-Intervall wurde von 45 Sekunden auf 120 Sekunden reduziert.
 
-Dieser Helfer bündelt gleichzeitige Bildpfad-Anfragen innerhalb eines kurzen Zeitfensters und ruft `/api/images/signed-urls` gebündelt auf. Zusätzlich werden signierte URLs clientseitig bis kurz vor Ablauf wiederverwendet.
+### 2. Statistik-API mit In-Memory-Cache
 
-Betroffen:
+`app/api/public/stats/route.js` nutzt nun zusätzlich zum CDN-/Browser-Cache einen serverseitigen Kurzcache:
 
-- `components/OptimizedImage.js`
-- `components/map/SmartImage.js`
-- `components/AdminMediaClient.js`
+- 5 Minuten frischer In-Memory-Cache
+- parallele Requests werden dedupliziert
+- bis zu 30 Minuten stale Fallback, falls eine kurzfristige DB-Abfrage fehlschlägt
+- Fehlerantworten bleiben `no-store`
 
-### 2. Weniger Request-Flut bei Discovery, Map-Popups und POI-Galerien
+### 3. Count-Abfragen minimaler
 
-Mehrere Bilder, die gleichzeitig sichtbar werden, erzeugen nicht mehr jeweils eigene Signing-Requests. Stattdessen werden sie nach Transformationsgröße gebündelt.
+Die Statistik-Counts nutzen nun `select('id', { count: 'exact', head: true })` statt `select('*', ...)`.
 
-### 3. Admin Media lädt sichtbare Thumbnails zuerst
+## Erwarteter Effekt
 
-In `/admin/media` werden bei großen Seiten nicht mehr alle 72 Thumbnail-URLs blockierend vorbereitet.
-
-Neu:
-
-- Die ersten 18 Thumbnail-URLs werden priorisiert geladen.
-- Die restlichen Thumbnail-URLs werden kurz danach im Hintergrund nachgeladen.
-- Originalbilder werden weiterhin erst bei Großansicht geladen.
-
-Das verbessert die gefühlte Erstansicht, weil die Seite früher nutzbar ist und sichtbare Bilder schneller erscheinen.
-
-### 4. Bestehende Funktionen bleiben erhalten
-
-- Statusfilter bleiben erhalten.
-- 24/48/72/120 Bilder pro Seite bleiben erhalten.
-- Großansicht lädt weiterhin Originalbilder bei Bedarf.
-- Keine Änderung an View-/Aufrufzählungen.
+- weniger Netzwerk- und DB-Arbeit beim Startseitenaufruf
+- stabilere erste Darstellung der Hero-Quick-Facts
+- weniger Last bei mehreren gleichzeitigen Besuchern
+- geringere Konkurrenz zu wichtigeren Initial-Ressourcen wie HTML, CSS, Hero und Navigation
 
 ## Prüfung
 
-- `npm ci --ignore-scripts`: erfolgreich
-- `npm test`: erfolgreich, aktuell ohne vorhandene Tests
-- `npm run build`: kompiliert erfolgreich; wurde in dieser Umgebung später bei `Collecting page data` wegen Timeout beendet.
-
-## Git
+Erfolgreich ausgeführt:
 
 ```bash
-git status
-git add .
-git commit -m "Batch signed image URL loading"
-git push
+npm ci --ignore-scripts
+npm test
 ```
+
+`npm run build` wurde zusätzlich mit Dummy-ENV-Werten gestartet. In dieser Umgebung schlug er wegen einer lokal unvollständigen Next.js-Installation fehl:
+
+```text
+ENOENT: no such file or directory, open 'node_modules/next/dist/build/polyfills/polyfill-nomodule.js'
+```
+
+Das ist kein Syntaxfehler aus dieser Änderung. `node_modules` und `.next` sind nicht Teil des ZIP-Pakets.
