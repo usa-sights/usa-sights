@@ -1,9 +1,10 @@
 'use client'
 
 import { memo, useEffect, useMemo, useState } from 'react'
-import { loadClientSignedUrl } from '@/utils/clientSignedUrls'
 
 const DEFAULT_FALLBACK = ''
+const signedUrlCache = new Map()
+const signedUrlPromiseCache = new Map()
 
 function getTransformKey(transform) {
   if (!transform || typeof transform !== 'object') return 'original'
@@ -12,6 +13,39 @@ function getTransformKey(transform) {
   const quality = Number(transform.quality) || ''
   const resize = transform.resize || ''
   return `${width}x${height}:${quality}:${resize}`
+}
+
+function getSignedCacheKey(path, transform) {
+  return `${getTransformKey(transform)}::${path}`
+}
+
+async function loadSignedUrl(path, transform) {
+  const normalizedPath = typeof path === 'string' ? path.trim() : ''
+  if (!normalizedPath) return ''
+
+  const cacheKey = getSignedCacheKey(normalizedPath, transform)
+  if (signedUrlCache.has(cacheKey)) return signedUrlCache.get(cacheKey)
+
+  if (!signedUrlPromiseCache.has(cacheKey)) {
+    signedUrlPromiseCache.set(cacheKey, fetch('/api/images/signed-urls', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        paths: [normalizedPath],
+        ...(transform ? { transform } : {}),
+      }),
+    })
+      .then((res) => res.ok ? res.json() : { urls: {} })
+      .then((data) => {
+        const signedUrl = data?.urls?.[normalizedPath] || ''
+        if (signedUrl) signedUrlCache.set(cacheKey, signedUrl)
+        return signedUrl
+      })
+      .catch(() => '')
+      .finally(() => signedUrlPromiseCache.delete(cacheKey)))
+  }
+
+  return signedUrlPromiseCache.get(cacheKey)
 }
 
 const OptimizedImage = memo(function OptimizedImage({
@@ -49,7 +83,7 @@ const OptimizedImage = memo(function OptimizedImage({
     }
 
     setCurrentSrc('')
-    loadClientSignedUrl(normalizedStoragePath, transform).then((signedUrl) => {
+    loadSignedUrl(normalizedStoragePath, transform).then((signedUrl) => {
       if (!active) return
       setCurrentSrc(signedUrl || fallbackSrc || '')
     })

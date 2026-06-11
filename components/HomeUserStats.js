@@ -4,13 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Image as ImageIcon, Link as LinkIcon, MapPinned } from 'lucide-react'
 import { useAppDataRefresh } from '@/hooks/useAppDataRefresh'
 
-const PLACEHOLDER_FACTS = [
-  { icon: MapPinned, label: 'POIs', value: 0 },
-  { icon: ImageIcon, label: 'Bilder', value: 0 },
-  { icon: LinkIcon, label: 'Links', value: 0 },
-]
-
-function AnimatedNumber({ value, startToken, isLoading = false }) {
+function AnimatedNumber({ value, startToken }) {
   const [display, setDisplay] = useState(0)
   const animationFrameRef = useRef(null)
 
@@ -58,8 +52,6 @@ function AnimatedNumber({ value, startToken, isLoading = false }) {
     }
   }, [startToken, value])
 
-  if (isLoading) return <span aria-hidden="true">–</span>
-
   return <span>{Number(display || 0).toLocaleString('de-DE')}</span>
 }
 
@@ -76,10 +68,8 @@ async function fetchStats(signal) {
 export default function HomeUserStats() {
   const containerRef = useRef(null)
   const abortControllerRef = useRef(null)
-  const refreshTimerRef = useRef(null)
   const [statsResponse, setStatsResponse] = useState(null)
   const [isVisible, setIsVisible] = useState(false)
-  const [hasRequestedStats, setHasRequestedStats] = useState(false)
   const [startToken, setStartToken] = useState(0)
 
   const loadStats = useCallback(async () => {
@@ -97,11 +87,19 @@ export default function HomeUserStats() {
     }
   }, [])
 
-  useAppDataRefresh(() => {
-    if (!hasRequestedStats) return
-    loadStats()
-  })
+  useAppDataRefresh(loadStats)
 
+  useEffect(() => {
+    loadStats()
+    return () => abortControllerRef.current?.abort()
+  }, [loadStats])
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      if (document.visibilityState === 'visible') loadStats()
+    }, 45000)
+    return () => window.clearInterval(timer)
+  }, [loadStats])
   useEffect(() => {
     const element = containerRef.current
     if (!element || typeof IntersectionObserver === 'undefined') {
@@ -115,11 +113,11 @@ export default function HomeUserStats() {
         setIsVisible(true)
         observer.disconnect()
       },
-      { rootMargin: '180px 0px', threshold: 0.05 }
+      { threshold: 0.15 }
     )
 
     observer.observe(element)
-    const fallbackTimer = window.setTimeout(() => setIsVisible(true), 1400)
+    const fallbackTimer = window.setTimeout(() => setIsVisible(true), 900)
 
     return () => {
       window.clearTimeout(fallbackTimer)
@@ -127,33 +125,9 @@ export default function HomeUserStats() {
     }
   }, [])
 
-  useEffect(() => {
-    if (!isVisible || hasRequestedStats) return
-    setHasRequestedStats(true)
-
-    const schedule = window.requestIdleCallback || ((callback) => window.setTimeout(callback, 120))
-    const cancel = window.cancelIdleCallback || window.clearTimeout
-    const handle = schedule(() => loadStats(), { timeout: 1200 })
-
-    return () => cancel(handle)
-  }, [hasRequestedStats, isVisible, loadStats])
-
-  useEffect(() => {
-    if (!hasRequestedStats) return undefined
-
-    refreshTimerRef.current = window.setInterval(() => {
-      if (document.visibilityState === 'visible') loadStats()
-    }, 120000)
-
-    return () => {
-      if (refreshTimerRef.current) window.clearInterval(refreshTimerRef.current)
-      abortControllerRef.current?.abort()
-    }
-  }, [hasRequestedStats, loadStats])
-
   const quickFacts = useMemo(() => {
     const stats = statsResponse?.stats
-    if (!stats) return PLACEHOLDER_FACTS
+    if (!stats) return []
 
     return [
       { icon: MapPinned, label: 'POIs', value: stats.pois },
@@ -163,27 +137,21 @@ export default function HomeUserStats() {
   }, [statsResponse])
 
   const statsSignature = quickFacts.map((item) => `${item.label}:${item.value || 0}`).join('|')
-  const isLoading = !statsResponse
 
   useEffect(() => {
-    if (!isVisible || isLoading || !quickFacts.length) return
+    if (!isVisible || !quickFacts.length) return
     setStartToken((current) => current + 1)
-  }, [isLoading, isVisible, quickFacts.length, statsSignature])
+  }, [isVisible, quickFacts.length, statsSignature])
 
   return (
-    <div
-      ref={containerRef}
-      className="hero-quickfacts"
-      aria-label="Quick Facts"
-      aria-busy={isLoading ? 'true' : 'false'}
-    >
+    <div ref={containerRef} className="hero-quickfacts" aria-label="Quick Facts">
       {quickFacts.map(({ icon: Icon, label, value }) => (
         <div key={label} className="hero-quickfact-column">
           <div className="hero-quickfact-icon">
             <Icon size={24} />
           </div>
           <div className="hero-quickfact-value">
-            <AnimatedNumber value={value} startToken={startToken} isLoading={isLoading} />
+            <AnimatedNumber value={value} startToken={startToken} />
           </div>
           <div className="hero-quickfact-label">{label}</div>
         </div>

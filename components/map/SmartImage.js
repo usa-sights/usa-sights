@@ -2,7 +2,9 @@
 
 import { memo, useEffect, useMemo, useState } from 'react'
 import { getPreviewImageCandidates } from '@/lib/map/poiUtils'
-import { loadClientSignedUrls } from '@/utils/clientSignedUrls'
+
+const signedUrlCache = new Map()
+const signedUrlPromiseCache = new Map()
 
 function getImagePaths(item) {
   return [item?.cover_thumb_path, item?.cover_path]
@@ -10,13 +12,40 @@ function getImagePaths(item) {
     .map((path) => path.trim())
 }
 
-const SmartImage = memo(function SmartImage({ item, className = '', alt = '', width = 320, height = 180, fallback = null, loading = 'lazy', fetchPriority, sizes, transform }) {
+async function loadSignedUrls(paths = []) {
+  const missingPaths = paths.filter((path) => path && !signedUrlCache.has(path))
+  if (!missingPaths.length) {
+    return Object.fromEntries(paths.map((path) => [path, signedUrlCache.get(path)]).filter(([, url]) => !!url))
+  }
+
+  const cacheKey = missingPaths.join('\n')
+  if (!signedUrlPromiseCache.has(cacheKey)) {
+    signedUrlPromiseCache.set(cacheKey, fetch('/api/images/signed-urls', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ paths: missingPaths }),
+    })
+      .then((res) => res.ok ? res.json() : { urls: {} })
+      .then((data) => {
+        const urls = data?.urls || {}
+        for (const [path, url] of Object.entries(urls)) {
+          if (url) signedUrlCache.set(path, url)
+        }
+        return urls
+      })
+      .catch(() => ({}))
+      .finally(() => signedUrlPromiseCache.delete(cacheKey)))
+  }
+
+  await signedUrlPromiseCache.get(cacheKey)
+  return Object.fromEntries(paths.map((path) => [path, signedUrlCache.get(path)]).filter(([, url]) => !!url))
+}
+
+const SmartImage = memo(function SmartImage({ item, className = '', alt = '', width = 320, height = 180, fallback = null, loading = 'lazy', fetchPriority, sizes }) {
   const [index, setIndex] = useState(0)
   const [signedUrls, setSignedUrls] = useState([])
   const directCandidates = getPreviewImageCandidates(item, { width, height })
   const paths = useMemo(() => getImagePaths(item), [item?.cover_thumb_path, item?.cover_path])
-  const signedTransform = useMemo(() => transform || { width, height, resize: 'cover', quality: 62 }, [transform, width, height])
-  const transformSignature = `${signedTransform?.width || ''}:${signedTransform?.height || ''}:${signedTransform?.resize || ''}:${signedTransform?.quality || ''}`
   const candidates = directCandidates.length ? directCandidates : signedUrls
 
   useEffect(() => {
@@ -27,13 +56,13 @@ const SmartImage = memo(function SmartImage({ item, className = '', alt = '', wi
   useEffect(() => {
     if (directCandidates.length || !paths.length) return undefined
     let active = true
-    loadClientSignedUrls(paths, signedTransform).then((urls) => {
+    loadSignedUrls(paths).then((urls) => {
       if (!active) return
       const orderedUrls = paths.map((path) => urls[path]).filter(Boolean)
       setSignedUrls(orderedUrls)
     })
     return () => { active = false }
-  }, [directCandidates.length, paths, transformSignature])
+  }, [directCandidates.length, paths])
 
   const src = candidates[index]
   if (!src) return fallback
