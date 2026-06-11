@@ -1,15 +1,16 @@
 'use client'
 
 import Link from 'next/link'
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { authFetchJson } from '@/utils/authFetch'
 import { deriveThumbPath } from '@/lib/imageUpload'
+import { loadClientSignedUrl, loadClientSignedUrls } from '@/utils/clientSignedUrls'
 
 const PAGE_SIZE_OPTIONS = [24, 48, 72, 120]
+const INITIAL_THUMB_SIGN_COUNT = 18
+const ADMIN_THUMB_TRANSFORM = { width: 320, height: 240, resize: 'cover', quality: 55 }
 const MEDIA_STATUSES = new Set(['pending', 'approved', 'rejected'])
-const signedUrlCache = new Map()
-
 function formatDate(value) {
   if (!value) return '—'
   try { return new Intl.DateTimeFormat('de-AT', { dateStyle:'medium', timeStyle:'short' }).format(new Date(value)) } catch { return value }
@@ -42,8 +43,11 @@ export default function AdminMediaClient() {
   const [pageSize, setPageSize] = useState(72)
   const [total, setTotal] = useState(0)
   const [hasMore, setHasMore] = useState(false)
+  const loadSequenceRef = useRef(0)
 
   const load = useCallback(async (next = {}) => {
+    const sequence = loadSequenceRef.current + 1
+    loadSequenceRef.current = sequence
     const nextStatus = normalizeStatus(next.status ?? status)
     const nextPage = next.page ?? page
     const nextPageSize = next.pageSize ?? pageSize
@@ -53,6 +57,7 @@ export default function AdminMediaClient() {
     const params = new URLSearchParams({ limit: String(nextPageSize), offset: String(offset) })
     if (nextStatus !== 'all') params.set('status', nextStatus)
     const data = await authFetchJson(`/api/admin/media?${params.toString()}`)
+    if (sequence !== loadSequenceRef.current) return
     setLoading(false)
     if (data.error) {
       setItems([])
@@ -66,29 +71,25 @@ export default function AdminMediaClient() {
     setTotal(Number(data.total || rows.length || 0))
     setHasMore(data.has_more === true)
     setSelectedIds((prev) => prev.filter((id) => rows.some((row) => row.id === id)))
+    setThumbUrls({})
+    setFullUrls({})
 
-    if (rows.length) {
-      const paths = Array.from(new Set(rows.map((x) => x.thumb_path || deriveThumbPath(x.path)).filter(Boolean)))
-      const cachedUrls = Object.fromEntries(paths.map((path) => [path, signedUrlCache.get(`thumb:${path}`)]).filter(([, url]) => Boolean(url)))
-      const missingPaths = paths.filter((path) => !cachedUrls[path])
-      let freshUrls = {}
-      if (missingPaths.length) {
-        const signed = await fetch('/api/images/signed-urls', {
-          method:'POST',
-          headers:{ 'Content-Type':'application/json' },
-          body: JSON.stringify({
-            paths: missingPaths,
-            transform: { width: 320, height: 240, resize: 'cover', quality: 55 }
-          })
-        }).then((r) => r.json()).catch(() => ({ urls:{} }))
-        freshUrls = signed.urls || {}
-        Object.entries(freshUrls).forEach(([path, url]) => signedUrlCache.set(`thumb:${path}`, url))
-      }
-      setThumbUrls({ ...cachedUrls, ...freshUrls })
-      setFullUrls({})
-    } else {
-      setThumbUrls({})
-      setFullUrls({})
+    if (!rows.length) return
+
+    const paths = Array.from(new Set(rows.map((x) => x.thumb_path || deriveThumbPath(x.path)).filter(Boolean)))
+    const firstPaths = paths.slice(0, INITIAL_THUMB_SIGN_COUNT)
+    const remainingPaths = paths.slice(INITIAL_THUMB_SIGN_COUNT)
+
+    const firstUrls = await loadClientSignedUrls(firstPaths, ADMIN_THUMB_TRANSFORM)
+    if (sequence !== loadSequenceRef.current) return
+    setThumbUrls(firstUrls)
+
+    if (remainingPaths.length) {
+      window.setTimeout(async () => {
+        const remainingUrls = await loadClientSignedUrls(remainingPaths, ADMIN_THUMB_TRANSFORM)
+        if (sequence !== loadSequenceRef.current) return
+        setThumbUrls((prev) => ({ ...prev, ...remainingUrls }))
+      }, 100)
     }
   }, [status, page, pageSize])
 
@@ -184,20 +185,8 @@ export default function AdminMediaClient() {
   }
   async function ensureFullImageUrl(img) {
     if (!img?.path || fullUrls[img.path]) return
-    const cacheKey = `full:${img.path}`
-    const cachedUrl = signedUrlCache.get(cacheKey)
-    if (cachedUrl) {
-      setFullUrls((prev) => ({ ...prev, [img.path]: cachedUrl }))
-      return
-    }
-    const signed = await fetch('/api/images/signed-urls', {
-      method:'POST',
-      headers:{ 'Content-Type':'application/json' },
-      body: JSON.stringify({ paths: [img.path] })
-    }).then((r) => r.json()).catch(() => ({ urls:{} }))
-    const nextUrl = signed.urls?.[img.path]
+    const nextUrl = await loadClientSignedUrl(img.path)
     if (nextUrl) {
-      signedUrlCache.set(cacheKey, nextUrl)
       setFullUrls((prev) => ({ ...prev, [img.path]: nextUrl }))
     }
   }
